@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: running-coach
+Version: 0.1.0
+Summary: Mini app d'entrainement running avec export Garmin (style Campus Coach simplifie)
+Requires-Python: >=3.12
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.32.0
+Requires-Dist: jinja2>=3.1.4
+Requires-Dist: python-multipart>=0.0.12
+Requires-Dist: itsdangerous>=2.2.0
+Requires-Dist: sqlmodel>=0.0.22
+Requires-Dist: pydantic>=2.9.0
+Requires-Dist: pydantic-settings>=2.6.0
+Requires-Dist: cryptography>=43.0.0
+Requires-Dist: garminconnect>=0.2.25
+Requires-Dist: garmin-fit-sdk>=21.158.0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: passlib[bcrypt]>=1.7.4
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Requires-Dist: httpx>=0.27.0; extra == "dev"

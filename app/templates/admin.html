@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill %}
+{% block title %}Coach - Mimi Coach{% endblock %}
+
+{% block extra_head %}
+<style>
+  details summary { list-style: none; cursor: pointer; }
+  details summary::-webkit-details-marker { display: none; }
+  details[open] .week-chevron { transform: rotate(90deg); }
+  .week-chevron { transition: transform 200ms ease; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+  <div>
+    <h1 class="text-2xl font-extrabold tracking-tight">Programme</h1>
+    <p class="text-sm text-stone-500">{{ athlete.name }} · {{ total_sessions }} séances</p>
+  </div>
+  <a href="/admin/sessions/new" class="btn btn-primary">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    Nouvelle séance
+  </a>
+</div>
+
+{% if athlete.pace_adjustment_pct %}
+  <div class="mb-4 flex items-center gap-2">
+    {{ adjustment_pill(athlete.pace_adjustment_pct) }}
+    <span class="text-xs text-stone-500">applicable aux séances futures</span>
+  </div>
+{% endif %}
+
+{% if not athlete.garmin_token_encrypted %}
+<div class="card card-pad mb-4 bg-amber-50 border-amber-200">
+  <div class="flex items-start gap-3">
+    <span class="text-2xl">⚠️</span>
+    <div>
+      <p class="font-semibold">Compte Garmin de {{ athlete.name }} non connecté</p>
+      <p class="text-sm text-stone-700 mt-1">Le bouton "Exporter" sera inactif tant que Garmin n'est pas lié.</p>
+      <a href="/settings/garmin" class="btn btn-secondary mt-3 text-sm">Configurer Garmin →</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Mois français pour formatter la date #}
+{% set _months_fr = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'] %}
+
+<div class="space-y-3">
+  {% for w in weeks %}
+    <details class="card overflow-hidden" {% if w.is_current or w.is_future %}open{% endif %}>
+      <summary class="flex items-center gap-3 p-4 hover:bg-stone-50/60 transition">
+        <svg class="w-4 h-4 text-stone-400 week-chevron flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="font-bold text-base">
+              Semaine du {{ w.monday.day }} {{ _months_fr[w.monday.month] }}
+            </h2>
+            {% if w.is_current %}
+              <span class="pill pill-amber">en cours</span>
+            {% elif w.is_future %}
+              <span class="pill pill-stone">à venir</span>
+            {% else %}
+              <span class="pill pill-stone">passée</span>
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-2 text-xs text-stone-500 mt-1 flex-wrap">
+            <span>{{ w.sessions | length }} séances</span>
+            <span>·</span>
+            <span>
+              {% if w.total_duration >= 60 %}
+                {{ (w.total_duration // 60) }}h{{ '%02d'|format(w.total_duration % 60) }}
+              {% else %}
+                {{ w.total_duration }} min
+              {% endif %}
+            </span>
+            <span>·</span>
+            <span>{{ '%.1f'|format(w.total_distance) }} km</span>
+            {% if w.done_count > 0 %}
+              <span>·</span>
+              <span class="text-emerald-600 font-medium">{{ w.done_count }}/{{ w.sessions|length }} validée{{ 's' if w.done_count > 1 else '' }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </summary>
+
+      <div class="border-t border-stone-100">
+        {% for s in w.sessions %}
+          <div class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50/60 transition {% if not loop.last %}border-b border-stone-100{% endif %}">
+            <div class="flex flex-col items-center justify-center flex-shrink-0 w-8">
+              <span class="text-[10px] uppercase font-semibold text-stone-400 tracking-wider">{{ s.date.strftime("%a") }}</span>
+              <span class="text-base font-bold text-stone-700 leading-tight">{{ s.date.day }}</span>
+            </div>
+            {{ session_icon(s) }}
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 text-[11px] text-stone-500 mb-0.5 flex-wrap">
+                <span class="font-medium">Séance {{ loop.index }}/{{ w.sessions|length }}</span>
+                {% if s.feedback %}{{ feedback_pill(s.feedback, with_label=False) }}{% endif %}
+                {% if s.last_push_error %}<span class="pill pill-rose">⚠ Erreur</span>{% endif %}
+              </div>
+              <div class="font-semibold text-stone-900 truncate">{{ s.name }}</div>
+              <div class="flex items-center gap-2 text-xs text-stone-500 mt-0.5">
+                <span>{{ s.estimated_duration_min or 0 }} min</span>
+                <span>·</span>
+                <span>{{ '%.1f'|format(s.estimated_distance_km or 0) }} km</span>
+                <span>·</span>
+                <span>{{ difficulty_bolts(s.difficulty, size='sm') }}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-0.5 flex-shrink-0">
+              <a href="/sessions/{{ s.id }}" class="w-9 h-9 rounded-full hover:bg-stone-100 flex items-center justify-center" title="Voir">
+                <svg class="w-4 h-4 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              </a>
+              <a href="/admin/sessions/{{ s.id }}/edit" class="w-9 h-9 rounded-full hover:bg-stone-100 flex items-center justify-center" title="Modifier">
+                <svg class="w-4 h-4 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              </a>
+              <form method="post" action="/admin/sessions/{{ s.id }}/delete" onsubmit="return confirm('Supprimer cette séance ?')" class="inline">
+                <button class="w-9 h-9 rounded-full hover:bg-rose-50 hover:text-rose-600 text-stone-400 flex items-center justify-center" title="Supprimer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </details>
+  {% else %}
+    <div class="card card-pad text-center py-12">
+      <div class="text-4xl mb-3">📋</div>
+      <h3 class="font-semibold text-stone-700">Aucune séance programmée</h3>
+      <p class="text-sm text-stone-500 mt-1 max-w-xs mx-auto">
+        Crée la première séance ou importe un programme depuis Campus Coach.
+      </p>
+      <a href="/admin/sessions/new" class="btn btn-primary mt-5">+ Première séance</a>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

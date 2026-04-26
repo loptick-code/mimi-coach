@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline %}
+{% block title %}{{ session.name }}{% endblock %}
+
+{% macro render_step(s, adj_pct=0) %}
+  {% set _adj = adj_pct or 0 %}
+  {% set border_map = {
+    'warmup': 'border-yellow-400',
+    'interval': 'border-rose-500',
+    'recovery': 'border-sky-300',
+    'cooldown': 'border-pink-300',
+    'other': 'border-emerald-400',
+  } %}
+  {% set type_label_map = {
+    'warmup': 'ÉCHAUFFEMENT',
+    'interval': s.label or 'INTERVALLE',
+    'recovery': 'RÉCUPÉRATION',
+    'cooldown': 'RETOUR CALME',
+    'other': s.label or 'COURSE',
+  } %}
+  {% set adj_factor = 1 + (_adj / 100) %}
+  <div class="rounded-lg border-l-4 {{ border_map[s.type.value] }} bg-white border-y border-r border-stone-100 px-3 py-2.5">
+    <div class="text-[10px] uppercase font-semibold tracking-wider text-stone-500">
+      {% if s.type.value == 'interval' or s.type.value == 'other' %}
+        {% if s.label %}{{ s.label }}{% else %}{{ {'interval':'INTERVALLE','other':'COURSE'}[s.type.value] }}{% endif %}
+      {% else %}
+        {{ type_label_map[s.type.value] }}{% if s.label %} · {{ s.label }}{% endif %}
+      {% endif %}
+    </div>
+    <div class="font-semibold text-stone-900 text-sm mt-0.5">
+      {%- if s.duration_type.value == 'time' and s.duration_value -%}
+        {%- if s.duration_value < 60 -%}
+          {{ s.duration_value | int }} sec
+        {%- elif s.duration_value % 60 == 0 -%}
+          {{ (s.duration_value / 60) | int }} min
+        {%- else -%}
+          {{ (s.duration_value // 60) | int }}'{{ '%02d' | format(s.duration_value | int % 60) }}
+        {%- endif -%}
+      {%- elif s.duration_type.value == 'distance' and s.duration_value -%}
+        {{ (s.duration_value / 1000) | round(2) }} km
+      {%- else -%}
+        Lap (manuel)
+      {%- endif -%}
+      {%- if s.target_type.value == 'pace' and s.target_low and s.target_high %}
+        <span class="text-stone-500 font-normal mx-1">à</span>
+        <span>{{ (s.target_high / adj_factor) | pace }}{% if (s.target_high | pace) != (s.target_low | pace) %} – {{ (s.target_low / adj_factor) | pace }}{% endif %}</span>
+      {%- elif s.target_type.value == 'heart_rate' and s.target_low and s.target_high %}
+        <span class="text-stone-500 font-normal mx-1">à</span>
+        <span>{{ s.target_low|int }} – {{ s.target_high|int }} bpm</span>
+      {% endif -%}
+    </div>
+  </div>
+{% endmacro %}
+
+{% block content %}
+<a href="/" class="inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-900 transition">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  Retour
+</a>
+
+<!-- HEADER avec hero -->
+<div class="mt-3 mb-5 flex items-start gap-4">
+  {{ session_icon(session, size='lg') }}
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center gap-2 mb-1 text-xs text-stone-500 flex-wrap">
+      {% if session.feedback %}{{ feedback_pill(session.feedback) }}{% endif %}
+      <span>{{ session.date.strftime("%A %d %B %Y") }}</span>
+    </div>
+    <h1 class="text-xl sm:text-3xl font-extrabold tracking-tight leading-tight break-words">{{ session.name }}</h1>
+  </div>
+</div>
+
+<!-- Notifications -->
+{% set qs = request.query_params %}
+{% set _mimi = [
+    "Elle m'dit que j'suis mimi",
+    "Moi, j't'aime à l'infini",
+    "Ça sera jamais fini",
+    "Y en a pas deux comme toi",
+    "On s'aime comme des fous",
+    "Amore mio, j'aime que toi",
+] %}
+{% if qs.get('success') == 'exported' %}
+<div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-100">
+  <div class="font-semibold">✅ Séance envoyée vers Garmin Connect</div>
+  <div class="text-xs mt-1 opacity-75">Synchronise ta montre pour la voir apparaitre.</div>
+  <div class="text-[11px] italic mt-2 text-emerald-700/80">« {{ _mimi | random }} » 🎵</div>
+</div>
+{% elif qs.get('success') == 'feedback' %}
+<div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-100">
+  <div class="font-semibold">✅ Séance validée</div>
+  <div class="text-xs mt-1 opacity-75">Ressenti noté, allures futures ajustées.</div>
+  <div class="text-[11px] italic mt-2 text-emerald-700/80">« {{ _mimi | random }} » 🎵</div>
+</div>
+{% elif qs.get('error') == 'garmin_not_connected' %}
+<div class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-900 text-sm font-medium border border-amber-100">
+  ⚠️ Le compte Garmin n'est pas connecté. <a href="/settings/garmin" class="underline">Configure-le ici</a>.
+</div>
+{% elif qs.get('error') == 'push_failed' %}
+<div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100">
+  ❌ Échec de l'export :
+  {% if session.last_push_error %}<br><span class="text-xs font-normal">{{ session.last_push_error }}</span>{% endif %}
+</div>
+{% endif %}
+
+<!-- STATS card -->
+<div class="card card-pad mb-4">
+  <div class="grid grid-cols-3 gap-3">
+    <div class="stat-block">
+      <div class="stat-label">Durée</div>
+      <div class="stat-value text-2xl mt-1">{{ session.estimated_duration_min or 0 }}<span class="text-sm text-stone-400 ml-0.5">min</span></div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-label">Distance</div>
+      <div class="stat-value text-2xl mt-1">{{ '%.1f'|format(session.estimated_distance_km or 0) }}<span class="text-sm text-stone-400 ml-0.5">km</span></div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-label">Difficulté</div>
+      <div class="mt-1.5">{{ difficulty_bolts(session.difficulty) }}</div>
+    </div>
+  </div>
+  {% if session.steps %}
+    <div class="mt-4">
+      {{ session_timeline(session) }}
+    </div>
+  {% endif %}
+  {% if session.description %}
+    <p class="mt-4 text-sm text-stone-700 leading-relaxed whitespace-pre-line">{{ session.description }}</p>
+  {% endif %}
+</div>
+
+<!-- INSTRUCTIONS -->
+<div class="card card-pad mb-4">
+  <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+    <h3 class="font-bold flex items-center gap-2">
+      <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Instructions
+    </h3>
+    {% if applied_adjustment_pct %}
+      {{ adjustment_pill(applied_adjustment_pct) }}
+    {% endif %}
+  </div>
+  {% set top_level = session.steps | selectattr('parent_repeat_id', 'none') | list %}
+  <div class="space-y-2">
+    {% for s in top_level %}
+      {% if s.kind == 'repeat' %}
+        <div class="rounded-lg border border-stone-200 bg-stone-50 p-2.5">
+          <div class="flex items-center gap-2 text-[10px] uppercase font-semibold tracking-wider text-stone-600 mb-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Répéter × {{ s.repeat_count }}
+          </div>
+          <div class="space-y-2">
+            {% for child in session.steps if child.parent_repeat_id == s.id %}
+              {{ render_step(child, applied_adjustment_pct) }}
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        {{ render_step(s, applied_adjustment_pct) }}
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<!-- VALIDATION -->
+<div class="card card-pad mb-4">
+  <h3 class="font-bold mb-3 flex items-center gap-2">
+    <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+    Validation & ressenti
+  </h3>
+  {% if session.feedback %}
+    {% set fb_label = {
+      'too_easy': ('🟢', 'Trop facile'),
+      'perfect': ('🟡', 'Parfait'),
+      'too_hard': ('🔴', 'Trop dur'),
+    }[session.feedback.value] %}
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        {{ feedback_pill(session.feedback) }}
+        {% if session.validated_at %}
+          <div class="text-xs text-stone-500 mt-1">Validée le {{ session.validated_at.strftime("%d/%m/%Y") }}</div>
+        {% endif %}
+      </div>
+      <form method="post" action="/sessions/{{ session.id }}/unvalidate"
+            onsubmit="return confirm('Annuler la validation ? L ajustement d allure sera remis à zéro.')">
+        <button class="btn btn-ghost text-sm">Annuler validation</button>
+      </form>
+    </div>
+  {% else %}
+    <p class="text-sm text-stone-600 mb-3">Comment as-tu trouvé cette séance ?</p>
+    <form method="post" action="/sessions/{{ session.id }}/feedback">
+      <div class="grid grid-cols-3 gap-2">
+        <button type="submit" name="feedback" value="too_easy"
+                class="group rounded-xl bg-white border border-stone-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition active:scale-95 px-3 py-4 text-center focus:outline-none focus:ring-2 focus:ring-emerald-200">
+          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+          </svg>
+          <div class="text-sm font-semibold mt-2">Trop facile</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">−2% allures</div>
+        </button>
+        <button type="submit" name="feedback" value="perfect"
+                class="group rounded-xl bg-white border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 transition active:scale-95 px-3 py-4 text-center focus:outline-none focus:ring-2 focus:ring-amber-200">
+          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          <div class="text-sm font-semibold mt-2">Parfait</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">aucun changement</div>
+        </button>
+        <button type="submit" name="feedback" value="too_hard"
+                class="group rounded-xl bg-white border border-stone-200 hover:border-rose-400 hover:bg-rose-50/50 transition active:scale-95 px-3 py-4 text-center focus:outline-none focus:ring-2 focus:ring-rose-200">
+          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-rose-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+          </svg>
+          <div class="text-sm font-semibold mt-2">Trop dur</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">+2% allures</div>
+        </button>
+      </div>
+    </form>
+    <p class="text-xs text-stone-500 mt-3 leading-relaxed">
+      Ton ressenti ajustera les allures cibles des séances suivantes.
+    </p>
+  {% endif %}
+</div>
+
+<!-- CTA bottom sticky : Modifier (secondaire) + Exporter (primaire) en avant -->
+<div class="fixed bottom-0 left-0 right-0 z-20 border-t border-stone-200/60"
+     style="background: rgba(250,250,249,0.95); backdrop-filter: blur(8px); padding: 0.75rem; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));">
+  <div class="max-w-3xl mx-auto flex gap-2 items-center">
+    {% if can_edit %}
+      <a href="/admin/sessions/{{ session.id }}/edit" class="btn btn-secondary flex-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        Modifier
+      </a>
+    {% endif %}
+    <form method="post" action="/sessions/{{ session.id }}/export" class="flex-1" data-export-form>
+      <button class="btn btn-primary w-full" data-export-btn>
+        <span class="flex items-center gap-2" data-export-idle>
+          {% if not session.pushed_at %}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+            <span>Exporter</span>
+          {% else %}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span>Re-exporter</span>
+          {% endif %}
+        </span>
+        <span class="hidden items-center gap-2" data-export-loading>
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="40 60" stroke-linecap="round"/>
+          </svg>
+          <span>Envoi…</span>
+        </span>
+      </button>
+    </form>
+    <a href="/sessions/{{ session.id }}/json" class="btn btn-ghost btn-icon" title="Télécharger JSON" style="flex-shrink: 0;">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+    </a>
+  </div>
+  {% if session.pushed_at %}
+    <p class="max-w-3xl mx-auto text-[11px] text-stone-500 mt-2 text-center">
+      Dernier export : {{ session.pushed_at.strftime("%d/%m/%Y %H:%M") }}
+    </p>
+  {% endif %}
+</div>
+
+<script>
+  // Loading state pour le formulaire d'export
+  document.querySelectorAll('[data-export-form]').forEach(form => {
+    form.addEventListener('submit', () => {
+      const btn = form.querySelector('[data-export-btn]');
+      const idle = form.querySelector('[data-export-idle]');
+      const loading = form.querySelector('[data-export-loading]');
+      if (btn && idle && loading) {
+        btn.disabled = true;
+        idle.classList.add('hidden');
+        loading.classList.remove('hidden');
+        loading.style.display = 'inline-flex';
+      }
+    });
+  });
+</script>
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 0.8s linear infinite; }
+</style>
+{% endblock %}

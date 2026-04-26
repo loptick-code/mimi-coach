@@ -1,0 +1,117 @@
+{# Macros communs pour rendre les seances #}
+
+{% macro session_icon(session, size='md') %}
+  {% set name = (session.name or '') | lower %}
+  {% if 'sortie longue' in name %}
+    {% set bg = 'bg-sky-100 text-sky-700' %}
+    {% set initials = 'SL' %}
+  {% elif 'seuil' in name %}
+    {% set bg = 'bg-rose-100 text-rose-700' %}
+    {% set initials = 'S' %}
+  {% elif 'force' in name %}
+    {% set bg = 'bg-indigo-100 text-indigo-700' %}
+    {% set initials = 'F' %}
+  {% elif 'intense' in name %}
+    {% set bg = 'bg-amber-100 text-amber-700' %}
+    {% set initials = 'I' %}
+  {% elif 'tempo' in name %}
+    {% set bg = 'bg-orange-100 text-orange-700' %}
+    {% set initials = 'T' %}
+  {% elif 'course' in name or 'compet' in name %}
+    {% set bg = 'bg-red-100 text-red-700' %}
+    {% set initials = '🏁' %}
+  {% elif 'récup' in name or 'recup' in name %}
+    {% set bg = 'bg-stone-100 text-stone-600' %}
+    {% set initials = 'R' %}
+  {% else %}
+    {% set bg = 'bg-emerald-100 text-emerald-700' %}
+    {% set initials = 'EF' %}
+  {% endif %}
+  {% set sizing = 'w-10 h-10 text-xs' if size == 'md' else 'w-14 h-14 text-base' %}
+  <div class="{{ sizing }} rounded-xl {{ bg }} flex items-center justify-center font-bold tracking-tight flex-shrink-0">
+    {{ initials }}
+  </div>
+{% endmacro %}
+
+
+{% macro feedback_pill(feedback, with_label=True) %}
+  {% if feedback %}
+    {% set fb = feedback.value if feedback.value is defined else feedback %}
+    {% set spec = {
+      'too_easy': ('🟢', 'Trop facile', 'pill-green'),
+      'perfect': ('🟡', 'Parfait', 'pill-amber'),
+      'too_hard': ('🔴', 'Trop dur', 'pill-rose'),
+    }[fb] %}
+    <span class="pill {{ spec[2] }}">{{ spec[0] }} {% if with_label %}{{ spec[1] }}{% else %}Validée{% endif %}</span>
+  {% endif %}
+{% endmacro %}
+
+
+{% macro difficulty_bolts(level, size='md') %}
+  {% set sz = 'w-3.5 h-3.5' if size == 'sm' else 'w-4 h-4' %}
+  <div class="flex items-center gap-0.5"
+       {% if level == 4 %}title="À l'infini 🎵"{% endif %}>
+    {% for i in range(4) %}
+      <svg viewBox="0 0 24 24" class="{{ sz }} {{ 'text-amber-500' if i < (level or 1) else 'text-stone-200' }}" fill="currentColor"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+
+{% macro adjustment_pill(pct) %}
+  {% if pct %}
+    {% set sign = '+' if pct > 0 else '' %}
+    {% set color = 'pill-rose' if pct > 0 else 'pill-green' %}
+    <span class="pill {{ color }}" title="Allures ajustées selon tes derniers ressentis">
+      Allures {{ sign }}{{ pct | round(1) }}%
+    </span>
+  {% endif %}
+{% endmacro %}
+
+
+{# Rendu d'une zone du timeline d'une seance (dégradé coloré horizontal) #}
+{% macro session_timeline(session, height='h-1.5') %}
+  {% set top_level = session.steps | selectattr('parent_repeat_id', 'none') | list %}
+  {% if top_level %}
+    {% set zone_colors = {
+      'warmup': 'bg-yellow-300',
+      'interval': 'bg-rose-400',
+      'recovery': 'bg-sky-200',
+      'cooldown': 'bg-pink-200',
+      'other': 'bg-emerald-300',
+    } %}
+    {% set ns = namespace(total=0) %}
+    {% for s in top_level %}
+      {% if s.kind == 'repeat' %}
+        {% set rcount = s.repeat_count or 1 %}
+        {% for child in session.steps if child.parent_repeat_id == s.id %}
+          {% if child.duration_value %}
+            {% set ns.total = ns.total + (child.duration_value * rcount) %}
+          {% endif %}
+        {% endfor %}
+      {% elif s.duration_value %}
+        {% set ns.total = ns.total + s.duration_value %}
+      {% endif %}
+    {% endfor %}
+    <div class="flex w-full {{ height }} rounded-full overflow-hidden bg-stone-100">
+      {% for s in top_level %}
+        {% if s.kind == 'repeat' %}
+          {% set rcount = s.repeat_count or 1 %}
+          {% for r in range(rcount) %}
+            {% for child in session.steps if child.parent_repeat_id == s.id %}
+              {% if child.duration_value and ns.total > 0 %}
+                {% set width = (child.duration_value / ns.total) * 100 %}
+                <div class="{{ zone_colors[child.type.value] }}" style="width: {{ width }}%"></div>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        {% else %}
+          {% if s.duration_value and ns.total > 0 %}
+            {% set width = (s.duration_value / ns.total) * 100 %}
+            <div class="{{ zone_colors[s.type.value] }}" style="width: {{ width }}%"></div>
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill %}
+{% block title %}{{ "Cette semaine" if is_current_week else monday.strftime("%d %b") + " - " + sunday.strftime("%d %b") }}{% endblock %}
+
+{% block content %}
+<!-- Navigation semaine -->
+<div class="flex items-center justify-between mb-5 gap-2">
+  <a href="/?week={{ prev_week }}" aria-label="Semaine précédente"
+     class="w-11 h-11 sm:w-9 sm:h-9 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-900 transition flex-shrink-0">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+
+  <div class="text-center">
+    {% if is_current_week %}
+      <h2 class="text-base font-semibold tracking-tight">Cette semaine</h2>
+    {% else %}
+      <h2 class="text-base font-semibold tracking-tight">{{ monday.strftime("%d %b") }} – {{ sunday.strftime("%d %b") }}</h2>
+      <a href="/" class="text-[11px] text-stone-500 hover:text-stone-900 underline underline-offset-2 decoration-stone-300 hover:decoration-stone-700 transition">
+        Revenir à la semaine en cours
+      </a>
+    {% endif %}
+  </div>
+
+  <a href="/?week={{ next_week }}" aria-label="Semaine suivante"
+     class="w-11 h-11 sm:w-9 sm:h-9 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-900 transition flex-shrink-0">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+  </a>
+</div>
+
+{% if athlete.pace_adjustment_pct %}
+  <div class="mb-4 flex items-center justify-center gap-2 text-xs text-stone-500">
+    {{ adjustment_pill(athlete.pace_adjustment_pct) }}
+    <span>basé sur tes derniers ressentis</span>
+  </div>
+{% endif %}
+
+{# Helper: format minutes en "Xh:MM" ou "X min" #}
+{% macro fmt_duration(mins) %}
+  {%- if mins is none -%}0 min
+  {%- elif mins >= 60 -%}{{ (mins // 60) | int }}h{{ '%02d'|format(mins | int % 60) }}
+  {%- else -%}{{ mins | int }} min
+  {%- endif -%}
+{% endmacro %}
+
+<!-- Aperçu hebdomadaire avec progression -->
+<div class="card card-pad mb-4">
+  <h3 class="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-3">Aperçu hebdomadaire</h3>
+  <div class="grid grid-cols-3 gap-3">
+    <div>
+      <div class="text-2xl font-bold tracking-tight leading-none">
+        <span class="{% if done_count == total_count and total_count > 0 %}text-emerald-600{% endif %}">{{ done_count }}</span><span class="text-stone-300 font-normal">/{{ total_count }}</span>
+      </div>
+      <div class="text-xs text-stone-500 mt-1.5">Activités</div>
+    </div>
+    <div>
+      <div class="text-2xl font-bold tracking-tight leading-none">
+        <span class="{% if done_duration >= total_duration and total_duration > 0 %}text-emerald-600{% endif %}">{{ fmt_duration(done_duration) }}</span>
+        <span class="text-stone-300 font-normal text-base">/ {{ fmt_duration(total_duration) }}</span>
+      </div>
+      <div class="text-xs text-stone-500 mt-1.5">Durée</div>
+    </div>
+    <div>
+      <div class="text-2xl font-bold tracking-tight leading-none">
+        <span class="{% if done_distance >= total_distance and total_distance > 0 %}text-emerald-600{% endif %}">{{ '%.1f'|format(done_distance) }}</span>
+        <span class="text-stone-300 font-normal text-base">/ {{ '%.1f'|format(total_distance) }}<span class="text-xs">km</span></span>
+      </div>
+      <div class="text-xs text-stone-500 mt-1.5">Distance</div>
+    </div>
+  </div>
+  {% if total_count > 0 %}
+    <div class="mt-3 h-1.5 rounded-full bg-stone-100 overflow-hidden">
+      {% set pct = (done_count / total_count * 100) | round %}
+      <div class="h-full bg-emerald-500 transition-all" style="width: {{ pct }}%"></div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Liste des séances -->
+<div class="space-y-2">
+  {% for s in sessions %}
+    <a href="/sessions/{{ s.id }}" class="block bg-white rounded-2xl border border-stone-100 hover:border-stone-200 hover:shadow-sm transition group">
+      <div class="flex items-center gap-3 p-4">
+        {{ session_icon(s) }}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 text-[11px] text-stone-500 mb-0.5 flex-wrap">
+            <span>{{ s.date.strftime("%a %d %b") }}</span>
+            {% if s.feedback %}
+              <span>·</span>
+              {{ feedback_pill(s.feedback, with_label=False) }}
+            {% endif %}
+          </div>
+          <div class="font-semibold text-stone-900 leading-tight truncate">{{ s.name }}</div>
+          <div class="flex items-center gap-2 mt-1.5 text-xs text-stone-500">
+            <span class="font-medium text-stone-700">{{ s.estimated_duration_min or 0 }} min</span>
+            <span>·</span>
+            <span>{{ '%.1f'|format(s.estimated_distance_km or 0) }} km</span>
+            <span>·</span>
+            {{ difficulty_bolts(s.difficulty, size='sm') }}
+          </div>
+        </div>
+        <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </div>
+    </a>
+  {% else %}
+    <div class="card card-pad text-center py-12">
+      <div class="text-4xl mb-3">🏃</div>
+      <h3 class="font-semibold text-stone-700">Aucune séance cette semaine</h3>
+      <p class="text-sm text-stone-500 mt-1 max-w-xs mx-auto">
+        {% if user.role.value == 'coach' %}
+          Crée la première séance pour démarrer le programme.
+        {% else %}
+          Pas de programme prévu pour cette semaine. Reviens plus tard.
+        {% endif %}
+      </p>
+      {% if user.role.value == 'coach' %}
+        <a href="/admin/sessions/new" class="btn btn-primary mt-5">+ Nouvelle séance</a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+{% if user.role.value == 'coach' and sessions %}
+<div class="mt-5 text-center">
+  <a href="/admin/sessions/new" class="btn btn-secondary text-sm">+ Ajouter une séance</a>
+</div>
+{% endif %}
+{% endblock %}

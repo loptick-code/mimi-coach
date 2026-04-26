@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Garmin - Mimi Coach{% endblock %}
+
+{% block content %}
+<a href="/" class="inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-900 transition">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  Retour
+</a>
+
+<div class="mt-3 mb-5 flex items-center gap-3">
+  <div class="w-12 h-12 rounded-2xl bg-stone-900 text-white flex items-center justify-center shadow-sm">
+    <span class="font-extrabold text-xs tracking-tight">GARMIN</span>
+  </div>
+  <div>
+    <h1 class="text-2xl font-extrabold tracking-tight">Connexion Garmin</h1>
+    {% if garmin_user and garmin_user.id != user.id %}
+      <p class="text-sm text-stone-500">Compte de <strong>{{ garmin_user.name }}</strong></p>
+    {% endif %}
+  </div>
+</div>
+
+{% if error %}
+<div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm border border-rose-100">{{ error }}</div>
+{% endif %}
+{% if success or request.query_params.get('success') %}
+<div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm font-medium border border-emerald-100">
+  ✅ Compte Garmin connecté avec succès.
+</div>
+{% endif %}
+
+<div class="card card-pad">
+  {% if garmin_user.garmin_token_encrypted %}
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <div class="field-label">Statut</div>
+        <div class="font-bold text-lg flex items-center gap-2 mt-1 flex-wrap">
+          <span class="pill pill-green">✓ Connecté</span>
+          {% if garmin_user.garmin_connected_name %}
+            <span class="text-sm font-normal text-stone-600">en tant que {{ garmin_user.garmin_connected_name }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <form method="post" action="/settings/garmin/disconnect"
+            onsubmit="return confirm('Déconnecter le compte Garmin ?')">
+        <button class="btn btn-danger">Déconnecter</button>
+      </form>
+    </div>
+    <div class="mt-4 p-3 rounded-xl bg-stone-50 text-sm text-stone-600">
+      Les séances exportées seront poussées sur ce compte Garmin Connect et synchronisées sur la montre.
+    </div>
+  {% else %}
+    <p class="text-sm text-stone-700 mb-4">
+      Connecte le compte Garmin Connect{% if garmin_user.id != user.id %} de <strong>{{ garmin_user.name }}</strong>{% endif %}.
+      Le mot de passe ne sera <strong>jamais</strong> stocké : seul un token de session chiffré est conservé.
+    </p>
+    <form method="post" action="/settings/garmin" class="space-y-3" data-garmin-form>
+      <div>
+        <label for="garmin-email" class="field-label">Email Garmin</label>
+        <input id="garmin-email" type="email" name="email" required autocomplete="off" class="input" />
+      </div>
+      <div>
+        <label for="garmin-password" class="field-label">Mot de passe Garmin</label>
+        <input id="garmin-password" type="password" name="password" required autocomplete="off" class="input" />
+      </div>
+      <button type="submit" class="btn btn-primary w-full mt-2" data-garmin-btn>
+        <span data-garmin-idle>Connecter Garmin</span>
+        <span class="hidden items-center gap-2" data-garmin-loading>
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="40 60" stroke-linecap="round"/>
+          </svg>
+          Connexion en cours…
+        </span>
+      </button>
+    </form>
+    <script>
+      document.querySelectorAll('[data-garmin-form]').forEach(form => {
+        form.addEventListener('submit', () => {
+          const btn = form.querySelector('[data-garmin-btn]');
+          const idle = form.querySelector('[data-garmin-idle]');
+          const loading = form.querySelector('[data-garmin-loading]');
+          if (btn && idle && loading) {
+            btn.disabled = true;
+            idle.classList.add('hidden');
+            loading.classList.remove('hidden');
+            loading.style.display = 'inline-flex';
+          }
+        });
+      });
+    </script>
+    <style>@keyframes spin { to { transform: rotate(360deg); } } .animate-spin { animation: spin 0.8s linear infinite; }</style>
+    <div class="mt-5 space-y-2 text-xs text-stone-500 leading-relaxed border-t border-stone-100 pt-4">
+      <p>⚠️ Si la 2FA est activée sur le compte Garmin, l'auth ne fonctionnera pas (limitation actuelle).</p>
+      <p>L'API Garmin utilisée est non-officielle. Elle peut casser à chaque mise à jour Garmin.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

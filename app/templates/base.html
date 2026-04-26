@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="fr" class="bg-stone-50">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#fafaf9" />
+    <title>{% block title %}Mimi Coach{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script>
+      // Custom Tailwind config (chargé avant utilisation des classes)
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+              display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                50: '#f5f5f4',
+                100: '#e7e5e4',
+                500: '#78716c',
+                900: '#1c1917',
+              },
+              zone: {
+                warmup: '#facc15',
+                interval: '#f43f5e',
+                recovery: '#7dd3fc',
+                cooldown: '#f9a8d4',
+                other: '#a8a29e',
+              }
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .icon-bolt { width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em; }
+
+      /* Cards */
+      .card { background: #fff; border-radius: 1rem; border: 1px solid #f5f5f4; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+      .card-pad { padding: 1rem; }
+      @media (min-width: 640px) { .card-pad { padding: 1.25rem; } }
+
+      /* Pills */
+      .pill { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+      .pill-green { background: #d1fae5; color: #065f46; }
+      .pill-amber { background: #fef3c7; color: #92400e; }
+      .pill-rose { background: #ffe4e6; color: #9f1239; }
+      .pill-sky { background: #e0f2fe; color: #075985; }
+      .pill-stone { background: #f5f5f4; color: #44403c; }
+
+      /* Buttons */
+      .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.625rem 1.25rem; border-radius: 9999px; font-size: 14px; font-weight: 600; transition: all 150ms ease; cursor: pointer; border: 1px solid transparent; line-height: 1; }
+      .btn:active { transform: scale(0.96); }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-primary { background: #1c1917; color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+      .btn-primary:hover { background: #44403c; }
+      .btn-secondary { background: white; border-color: #e7e5e4; color: #292524; }
+      .btn-secondary:hover { background: #fafaf9; border-color: #d6d3d1; }
+      .btn-ghost { background: transparent; color: #44403c; }
+      .btn-ghost:hover { background: #f5f5f4; }
+      .btn-danger { background: #e11d48; color: white; }
+      .btn-danger:hover { background: #f43f5e; }
+      .btn-icon { padding: 0; width: 2.5rem; height: 2.5rem; border-radius: 9999px; }
+
+      /* Stats */
+      .stat-label { color: #78716c; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+
+      /* Nav */
+      .nav-link { font-size: 14px; font-weight: 500; color: #57534e; transition: color 150ms; }
+      .nav-link:hover { color: #1c1917; }
+      .nav-link-active { color: #1c1917; }
+
+      /* Inputs */
+      .input, input.input, select.input, textarea.input {
+        display: block;
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e7e5e4;
+        background: white;
+        color: #1c1917;
+        font-size: 14px;
+        font-family: inherit;
+        transition: border-color 150ms, box-shadow 150ms;
+      }
+      .input:focus, input.input:focus, select.input:focus, textarea.input:focus {
+        outline: none;
+        border-color: #1c1917;
+        box-shadow: 0 0 0 3px rgba(28, 25, 23, 0.1);
+      }
+      .input-sm, input.input-sm, select.input-sm, textarea.input-sm {
+        display: block;
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e7e5e4;
+        background: white;
+        color: #1c1917;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      .input-sm:focus, input.input-sm:focus, select.input-sm:focus, textarea.input-sm:focus {
+        outline: none;
+        border-color: #1c1917;
+        box-shadow: 0 0 0 2px rgba(28, 25, 23, 0.08);
+      }
+
+      /* Field labels */
+      .field-label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+        color: #78716c;
+        margin-bottom: 0.375rem;
+      }
+    </style>
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="min-h-screen text-stone-900 antialiased">
+    {% if user %}
+    <header class="sticky top-0 z-30 backdrop-blur bg-stone-50/85 border-b border-stone-200/80">
+      <div class="max-w-3xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
+        <a href="/" class="flex items-center gap-2 font-extrabold text-base sm:text-lg tracking-tight flex-shrink-0">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" fill="currentColor"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          <span class="hidden sm:inline">Mimi Coach</span>
+        </a>
+        <nav class="flex items-center gap-0.5 sm:gap-1">
+          <a href="/" class="nav-link px-2 sm:px-3 py-1.5 rounded-full {% if request.url.path in ['/', ''] %}nav-link-active bg-stone-100{% endif %}">Séances</a>
+          {% if user.role.value == 'coach' %}
+            <a href="/admin" class="nav-link px-2 sm:px-3 py-1.5 rounded-full {% if request.url.path.startswith('/admin') %}nav-link-active bg-stone-100{% endif %}">Coach</a>
+          {% endif %}
+          {# Menu Compte (Garmin + Déconnexion) #}
+          <div class="relative" data-account-menu>
+            <button type="button" data-account-toggle aria-expanded="false"
+                    class="nav-link px-2 sm:px-3 py-1.5 rounded-full inline-flex items-center gap-1 {% if request.url.path.startswith('/settings') %}nav-link-active bg-stone-100{% endif %}">
+              Compte
+              <svg class="w-3 h-3 transition-transform" style="margin-top: 1px;" data-account-chevron fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div data-account-dropdown
+                 class="absolute right-0 top-full mt-2 w-44 bg-white border border-stone-200 rounded-xl shadow-lg py-1 hidden z-40"
+                 role="menu">
+              <a href="/settings/garmin" class="flex items-center gap-2 px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition" role="menuitem">
+                <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Garmin Connect
+              </a>
+              <div class="border-t border-stone-100 my-1"></div>
+              <form action="/logout" method="post">
+                <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 transition" role="menuitem">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                  Se déconnecter
+                </button>
+              </form>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </header>
+    <script>
+      // Toggle du menu Compte
+      (function () {
+        const menu = document.querySelector('[data-account-menu]');
+        if (!menu) return;
+        const toggle = menu.querySelector('[data-account-toggle]');
+        const dropdown = menu.querySelector('[data-account-dropdown]');
+        const chevron = menu.querySelector('[data-account-chevron]');
+        const close = () => {
+          dropdown.classList.add('hidden');
+          toggle.setAttribute('aria-expanded', 'false');
+          chevron.style.transform = '';
+        };
+        toggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = dropdown.classList.toggle('hidden');
+          toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+          chevron.style.transform = open ? '' : 'rotate(180deg)';
+        });
+        document.addEventListener('click', (e) => {
+          if (!menu.contains(e.target)) close();
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') close();
+        });
+      })();
+    </script>
+    {% endif %}
+
+    <main class="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6"
+          style="padding-bottom: calc(6rem + env(safe-area-inset-bottom));">
+      {% block content %}{% endblock %}
+    </main>
+
+    {# Footer : lyric aleatoire du Son de Mimi a chaque pageload #}
+    {% set _lyrics = [
+      "Elle m'dit que j'suis mimi",
+      "Moi, j't'aime à l'infini",
+      "Ça sera jamais fini",
+      "Y en a pas deux comme toi",
+      "On s'aime comme des fous",
+      "Amore mio, j'aime que toi",
+      "Crois-moi, y en a pas deux comme toi",
+      "Quand j'la vois, elle me remonte le moral",
+      "Nous deux ensemble, jusqu'à c'qu'on finisse là-haut",
+      "Faut qu'on passe des soirées sans penser",
+    ] %}
+    <footer class="max-w-3xl mx-auto px-4 pb-8 pt-2 text-center select-none">
+      <p class="text-[11px] text-stone-400 italic">« {{ _lyrics | random }} » 🎵</p>
+    </footer>
+  </body>
+</html>

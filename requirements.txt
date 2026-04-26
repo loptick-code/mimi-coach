@@ -1,0 +1,13 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+jinja2>=3.1.4
+python-multipart>=0.0.12
+itsdangerous>=2.2.0
+sqlmodel>=0.0.22
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+cryptography>=43.0.0
+garminconnect>=0.2.25
+python-dotenv>=1.0.1
+bcrypt>=4.2.0
+psycopg[binary]>=3.2.0
