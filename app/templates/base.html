@@ -139,9 +139,7 @@
         </a>
         <nav class="flex items-center gap-0.5 sm:gap-1">
           <a href="/" class="nav-link px-2 sm:px-3 py-1.5 rounded-full {% if request.url.path in ['/', ''] %}nav-link-active bg-stone-100{% endif %}">Séances</a>
-          {% if user.role.value == 'coach' %}
-            <a href="/admin" class="nav-link px-2 sm:px-3 py-1.5 rounded-full {% if request.url.path.startswith('/admin') %}nav-link-active bg-stone-100{% endif %}">Coach</a>
-          {% endif %}
+          <a href="/admin" class="nav-link px-2 sm:px-3 py-1.5 rounded-full {% if request.url.path.startswith('/admin') %}nav-link-active bg-stone-100{% endif %}">Coach</a>
           {# Menu Compte (Garmin + Déconnexion) #}
           <div class="relative" data-account-menu>
             <button type="button" data-account-toggle aria-expanded="false"

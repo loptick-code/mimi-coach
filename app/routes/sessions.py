@@ -144,7 +144,7 @@ async def session_detail(
             "session": s,
             "athlete": athlete,
             "applied_adjustment_pct": applied_adj,
-            "can_edit": user.role == UserRole.coach,
+            "can_edit": True,
         },
     )
 

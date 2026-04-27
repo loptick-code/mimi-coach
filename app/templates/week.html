@@ -110,20 +110,14 @@
       <div class="text-4xl mb-3">🏃</div>
       <h3 class="font-semibold text-stone-700">Aucune séance cette semaine</h3>
       <p class="text-sm text-stone-500 mt-1 max-w-xs mx-auto">
-        {% if user.role.value == 'coach' %}
-          Crée la première séance pour démarrer le programme.
-        {% else %}
-          Pas de programme prévu pour cette semaine. Reviens plus tard.
-        {% endif %}
+        Crée la première séance pour démarrer le programme.
       </p>
-      {% if user.role.value == 'coach' %}
-        <a href="/admin/sessions/new" class="btn btn-primary mt-5">+ Nouvelle séance</a>
-      {% endif %}
+      <a href="/admin/sessions/new" class="btn btn-primary mt-5">+ Nouvelle séance</a>
     </div>
   {% endfor %}
 </div>
 
-{% if user.role.value == 'coach' and sessions %}
+{% if sessions %}
 <div class="mt-5 text-center">
   <a href="/admin/sessions/new" class="btn btn-secondary text-sm">+ Ajouter une séance</a>
 </div>

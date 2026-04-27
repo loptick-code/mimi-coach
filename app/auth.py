@@ -59,6 +59,5 @@ def require_user(
 
 
 def require_coach(user: User = Depends(require_user)) -> User:
-    if user.role != UserRole.coach:
-        raise HTTPException(status_code=403, detail="Reserve au coach")
+    # App 2 users (coach + athlete) : les deux ont droits d'edition.
     return user
