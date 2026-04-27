@@ -83,7 +83,11 @@
         {{ session_icon(s) }}
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 text-[11px] text-stone-500 mb-0.5 flex-wrap">
+            <span class="font-semibold text-stone-700">Séance {{ loop.index }}</span>
+            <span>·</span>
             <span>{{ s.date.strftime("%a %d %b") }}</span>
+            <span>·</span>
+            <span class="text-amber-600 font-medium">à ne pas manquer</span>
             {% if s.feedback %}
               <span>·</span>
               {{ feedback_pill(s.feedback, with_label=False) }}
