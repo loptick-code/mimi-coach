@@ -9,8 +9,9 @@ Responsabilites :
 
 from __future__ import annotations
 
+import datetime as _dt
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from garminconnect import Garmin
 from garminconnect.workout import RunningWorkout
@@ -109,6 +110,89 @@ def push_running_workout(
             on_token_refreshed(encrypt(new_token))
 
     return int(workout_id)
+
+
+@dataclass
+class GarminActivitySummary:
+    """Resume d'une activite Garmin completee (vue depuis l'app)."""
+
+    activity_id: int
+    duration_sec: int
+    distance_m: float
+    start_time: Optional[_dt.datetime]
+    activity_type: str
+
+
+_RUNNING_TYPES = {
+    "running",
+    "trail_running",
+    "indoor_running",
+    "treadmill_running",
+    "track_running",
+    "street_running",
+    "virtual_run",
+}
+
+
+def fetch_running_activity_for_date(
+    token_encrypted: bytes,
+    target_date: _dt.date,
+    on_token_refreshed: Callable[[bytes], None] | None = None,
+) -> Optional[GarminActivitySummary]:
+    """Cherche l'activite running de Garmin pour `target_date`.
+
+    Retourne la plus longue activite running du jour ou None si aucune trouvee.
+    Ne leve pas si rien trouve (cas normal : montre pas synchro, jour off, etc.).
+    """
+    client = resume_client(token_encrypted)
+    try:
+        activities = client.get_activities_by_date(
+            target_date.isoformat(), target_date.isoformat()
+        )
+    except Exception as exc:
+        raise GarminError(f"Echec de la recuperation des activites : {exc}") from exc
+
+    if on_token_refreshed is not None:
+        new_token = client.client.dumps()
+        if new_token and len(new_token) > 512:
+            on_token_refreshed(encrypt(new_token))
+
+    if not activities:
+        return None
+
+    # Filtre running, garde la plus longue (au cas ou plusieurs runs)
+    candidates: list[GarminActivitySummary] = []
+    for a in activities:
+        type_key = (a.get("activityType") or {}).get("typeKey", "").lower()
+        if type_key not in _RUNNING_TYPES:
+            continue
+        activity_id = a.get("activityId")
+        duration = a.get("duration")  # secondes (float)
+        distance = a.get("distance")  # metres (float)
+        if not activity_id or not duration or not distance:
+            continue
+        start_str = a.get("startTimeLocal") or a.get("startTimeGMT")
+        start_dt = None
+        if start_str:
+            try:
+                start_dt = _dt.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+            except ValueError:
+                pass
+        candidates.append(
+            GarminActivitySummary(
+                activity_id=int(activity_id),
+                duration_sec=int(duration),
+                distance_m=float(distance),
+                start_time=start_dt,
+                activity_type=type_key,
+            )
+        )
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda c: c.duration_sec, reverse=True)
+    return candidates[0]
 
 
 def _safe_display_name(client: Garmin) -> str | None:

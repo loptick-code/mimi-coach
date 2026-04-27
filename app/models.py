@@ -116,6 +116,11 @@ class Session(SQLModel, table=True):
     # Snapshot du pace_adjustment_pct au moment de la validation (pour gel)
     pace_adjustment_at_validation: Optional[float] = Field(default=None)
 
+    # Realise (recupere depuis Garmin a la validation)
+    garmin_activity_id: Optional[int] = Field(default=None, index=True)
+    actual_duration_sec: Optional[int] = Field(default=None)
+    actual_distance_m: Optional[float] = Field(default=None)
+
     created_at: _dt.datetime = Field(default_factory=_dt.datetime.utcnow)
     updated_at: _dt.datetime = Field(default_factory=_dt.datetime.utcnow)
 

@@ -24,6 +24,7 @@ from app.models import (
     User,
     UserRole,
 )
+from app.services import garmin_client
 from app.services.workout_builder import (
     estimate_duration_and_distance,
     pace_str_to_min_per_km,
@@ -192,11 +193,37 @@ async def submit_feedback(
     s.validated_at = datetime.utcnow()
     s.pace_adjustment_at_validation = snapshot
 
+    # Tente de recuperer l'activite Garmin du jour pour stocker le realise.
+    # Echec silencieux : la validation reste valide meme si Garmin ne repond pas
+    # ou si aucune activite n'est trouvee (montre pas synchro, run sans GPS, etc.)
+    garmin_status = "ok"
+    if athlete.garmin_token_encrypted:
+        def _persist_token(new_token: bytes) -> None:
+            athlete.garmin_token_encrypted = new_token
+            db.add(athlete)
+
+        try:
+            activity = garmin_client.fetch_running_activity_for_date(
+                athlete.garmin_token_encrypted,
+                s.date,
+                on_token_refreshed=_persist_token,
+            )
+            if activity is not None:
+                s.garmin_activity_id = activity.activity_id
+                s.actual_duration_sec = activity.duration_sec
+                s.actual_distance_m = activity.distance_m
+            else:
+                garmin_status = "no_activity"
+        except garmin_client.GarminError:
+            garmin_status = "garmin_error"
+    else:
+        garmin_status = "garmin_not_connected"
+
     db.add(athlete)
     db.add(s)
     db.commit()
     return RedirectResponse(
-        url=f"/sessions/{session_id}?success=feedback",
+        url=f"/sessions/{session_id}?success=feedback&garmin={garmin_status}",
         status_code=303,
     )
 
