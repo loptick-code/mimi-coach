@@ -29,7 +29,7 @@ def _garmin_owner(viewer: User, db: DBSession) -> User:
     if viewer.role == UserRole.athlete:
         return viewer
     athlete = db.exec(
-        select(User).where(User.role == UserRole.athlete)
+        select(User).where(User.role == UserRole.athlete).order_by(User.id)
     ).first()
     return athlete or viewer
 

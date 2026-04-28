@@ -43,11 +43,15 @@ def _week_bounds(reference: date) -> tuple[date, date]:
 
 
 def _resolve_target_athlete(db: DBSession, viewer: User) -> User:
-    """Si le viewer est coach, on cible l'unique athlete. Sinon viewer."""
+    """Si le viewer est coach, on cible le premier athlete (par id). Sinon viewer.
+
+    L'order_by(User.id) garantit que le coach voit toujours le meme athlete
+    meme si plusieurs comptes test/dev coexistent.
+    """
     if viewer.role == UserRole.athlete:
         return viewer
     athlete = db.exec(
-        select(User).where(User.role == UserRole.athlete)
+        select(User).where(User.role == UserRole.athlete).order_by(User.id)
     ).first()
     if athlete is None:
         raise HTTPException(404, "Aucun athlete configure")
