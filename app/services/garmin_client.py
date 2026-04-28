@@ -167,29 +167,50 @@ def fetch_recent_running_activities(
     limit: int = 30,
     on_token_refreshed: Callable[[bytes], None] | None = None,
 ) -> list["GarminActivitySummary"]:
-    """Recupere les `limit` activites running les plus recentes du compte Garmin.
+    """Recupere les `limit * 3` dernieres activites Garmin et garde les `limit` runs les plus recents.
 
-    Pas de filtre par date - retourne toutes les courses recentes pour que
-    l'utilisateur puisse choisir laquelle assigner a la seance.
+    On fetch large car get_activities peut renvoyer aussi du velo, marche, etc.,
+    et on filtre cote app.
     """
     client = resume_client(token_encrypted)
     try:
-        # get_activities(start, limit) renvoie les `limit` activites a partir de l'index `start`
-        activities = client.get_activities(0, limit)
+        # get_activities(start, limit) renvoie les activites a partir de l'index `start`
+        # On fetch + large pour avoir de la marge si l'utilisateur fait aussi du velo
+        raw = client.get_activities(0, max(limit * 3, 15))
     except Exception as exc:
         raise GarminError(f"Echec de la recuperation des activites : {exc}") from exc
 
     if on_token_refreshed is not None:
-        new_token = client.client.dumps()
-        if new_token and len(new_token) > 512:
-            on_token_refreshed(encrypt(new_token))
+        try:
+            new_token = client.client.dumps()
+            if new_token and len(new_token) > 512:
+                on_token_refreshed(encrypt(new_token))
+        except Exception:
+            pass  # Persistance token best-effort
 
-    if not activities:
+    # L'API peut renvoyer dict ou list - on normalise en list
+    if isinstance(raw, dict):
+        # Cas dict : essaye de recuperer la liste depuis une cle connue
+        for key in ("activities", "activityList", "items"):
+            if key in raw and isinstance(raw[key], list):
+                raw = raw[key]
+                break
+        else:
+            # Pas de cle list trouvee, considere vide
+            return []
+
+    if not raw or not isinstance(raw, list):
         return []
 
     summaries: list[GarminActivitySummary] = []
-    for a in activities:
-        s = _activity_dict_to_summary(a)
+    for a in raw:
+        if not isinstance(a, dict):
+            continue
+        try:
+            s = _activity_dict_to_summary(a)
+        except Exception:
+            # Une activite cassee ne doit pas faire planter tout le picker
+            continue
         if s is not None:
             summaries.append(s)
 
@@ -198,7 +219,7 @@ def fetch_recent_running_activities(
         key=lambda x: x.start_time or _dt.datetime.min,
         reverse=True,
     )
-    return summaries
+    return summaries[:limit]
 
 
 def _safe_display_name(client: Garmin) -> str | None:

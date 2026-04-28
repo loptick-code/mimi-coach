@@ -373,6 +373,9 @@ async def pick_garmin_page(
         )
     except garmin_client.GarminError as exc:
         error = str(exc)
+    except Exception as exc:
+        # Filet de securite : on rend une erreur lisible plutot qu'un 500 nu
+        error = f"Erreur inattendue ({type(exc).__name__}) : {exc}"
 
     return templates.TemplateResponse(
         request,
