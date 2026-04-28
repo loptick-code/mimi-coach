@@ -324,61 +324,11 @@
       </form>
     </details>
 
-  {# === ETAT 1 : ni actuals ni feedback - on demande la source du realise === #}
+  {# === ETAT 1 : ni actuals ni feedback - le clic sur le bouton bas ouvre la modal === #}
   {% else %}
-    <p class="text-sm text-stone-600 mb-3">D'abord, dis-moi ce que tu as fait :</p>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-      {% if athlete.garmin_token_encrypted %}
-        <a href="/sessions/{{ session.id }}/pick-garmin"
-           class="block w-full group rounded-xl bg-white border border-stone-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition active:scale-95 px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-emerald-200">
-          <div class="flex items-center gap-3">
-            <svg class="w-6 h-6 text-stone-400 group-hover:text-emerald-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            <div>
-              <div class="text-sm font-semibold">Choisir depuis Garmin</div>
-              <div class="text-[11px] text-stone-500 mt-0.5">Liste de tes courses récentes</div>
-            </div>
-          </div>
-        </a>
-      {% else %}
-        <a href="/settings/garmin"
-           class="block w-full rounded-xl bg-white border border-amber-200 hover:bg-amber-50/50 transition px-4 py-4 text-left">
-          <div class="flex items-center gap-3">
-            <svg class="w-6 h-6 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            <div>
-              <div class="text-sm font-semibold text-amber-900">Connecter Garmin</div>
-              <div class="text-[11px] text-amber-700/80 mt-0.5">Pour activer l'import auto</div>
-            </div>
-          </div>
-        </a>
-      {% endif %}
-      <button type="button" onclick="document.getElementById('manual-form').classList.toggle('hidden')"
-              class="group rounded-xl bg-white border border-stone-200 hover:border-stone-400 hover:bg-stone-50 transition active:scale-95 px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-stone-200">
-        <div class="flex items-center gap-3">
-          <svg class="w-6 h-6 text-stone-400 group-hover:text-stone-600 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-          <div>
-            <div class="text-sm font-semibold">Saisir manuellement</div>
-            <div class="text-[11px] text-stone-500 mt-0.5">Sans montre / sans Garmin</div>
-          </div>
-        </div>
-      </button>
-    </div>
-    <form id="manual-form" method="post" action="/sessions/{{ session.id }}/manual-actuals" class="hidden mt-2 p-3 rounded-xl bg-stone-50 border border-stone-100">
-      <div class="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
-        <div>
-          <label class="block text-[11px] text-stone-600 font-medium mb-1">Durée (min)</label>
-          <input type="number" name="duration_min" step="0.1" min="0.1" required
-                 placeholder="{{ session.estimated_duration_min or 40 }}"
-                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400 bg-white" />
-        </div>
-        <div>
-          <label class="block text-[11px] text-stone-600 font-medium mb-1">Distance (km)</label>
-          <input type="number" name="distance_km" step="0.01" min="0.01" required
-                 placeholder="{{ '%.1f'|format(session.estimated_distance_km or 6.0) }}"
-                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400 bg-white" />
-        </div>
-        <button type="submit" class="btn btn-primary text-sm">Enregistrer</button>
-      </div>
-    </form>
+    <p class="text-sm text-stone-600 leading-relaxed">
+      Quand t'as fini ta séance, clique sur <span class="font-semibold text-stone-900">Valider ma séance</span> en bas de l'écran.
+    </p>
   {% endif %}
 </div>
 
@@ -405,15 +355,23 @@
         </span>
       </button>
     </form>
-    <a href="#validation" class="btn btn-primary flex-1 flex items-center justify-center gap-2">
-      {% if session.feedback %}
+    {% if session.feedback %}
+      <a href="#validation" class="btn btn-primary flex-1 flex items-center justify-center gap-2">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         <span>Voir la validation</span>
-      {% else %}
+      </a>
+    {% elif session.actual_duration_sec and session.actual_distance_m %}
+      <a href="#validation" class="btn btn-primary flex-1 flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <span>Donner mon ressenti</span>
+      </a>
+    {% else %}
+      <button type="button" onclick="document.getElementById('validate-modal').showModal()"
+              class="btn btn-primary flex-1 flex items-center justify-center gap-2">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
         <span>Valider ma séance</span>
-      {% endif %}
-    </a>
+      </button>
+    {% endif %}
   </div>
   {% if session.pushed_at %}
     <p class="max-w-3xl mx-auto text-[11px] text-stone-500 mt-2 text-center">
@@ -421,6 +379,103 @@
     </p>
   {% endif %}
 </div>
+
+<!-- MODAL : Valider ma séance (s'ouvre via le bouton bas, etat 1 uniquement) -->
+{% if not session.feedback and not (session.actual_duration_sec and session.actual_distance_m) %}
+<dialog id="validate-modal" class="rounded-2xl p-0 max-w-md w-full backdrop:bg-stone-900/40 backdrop:backdrop-blur-sm">
+  <div class="p-5">
+    <!-- Step 1 : choix de la source -->
+    <div data-step="1">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-lg">Comment enregistrer ?</h3>
+        <button type="button" onclick="document.getElementById('validate-modal').close()"
+                class="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-500"
+                aria-label="Fermer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="space-y-2">
+        {% if athlete.garmin_token_encrypted %}
+          <a href="/sessions/{{ session.id }}/pick-garmin"
+             class="block w-full group rounded-xl bg-white border border-stone-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition active:scale-[0.98] px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-emerald-200">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              </div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold">Importer depuis Garmin</div>
+                <div class="text-[11px] text-stone-500 mt-0.5">5 dernières courses du compte</div>
+              </div>
+              <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        {% else %}
+          <a href="/settings/garmin"
+             class="block w-full rounded-xl bg-white border border-amber-200 hover:bg-amber-50/50 transition px-4 py-4 text-left">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              </div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-amber-900">Connecter Garmin d'abord</div>
+                <div class="text-[11px] text-amber-700/80 mt-0.5">Pour activer l'import auto</div>
+              </div>
+            </div>
+          </a>
+        {% endif %}
+        <button type="button"
+                onclick="this.closest('dialog').querySelector('[data-step=\'1\']').classList.add('hidden'); this.closest('dialog').querySelector('[data-step=\'2\']').classList.remove('hidden'); this.closest('dialog').querySelector('input[name=duration_min]').focus();"
+                class="block w-full group rounded-xl bg-white border border-stone-200 hover:border-stone-400 hover:bg-stone-50 transition active:scale-[0.98] px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-stone-200">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </div>
+            <div class="flex-1">
+              <div class="text-sm font-semibold">Saisir manuellement</div>
+              <div class="text-[11px] text-stone-500 mt-0.5">Sans montre / sans Garmin</div>
+            </div>
+            <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2 : formulaire manuel -->
+    <div data-step="2" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <button type="button"
+                onclick="this.closest('dialog').querySelector('[data-step=\'1\']').classList.remove('hidden'); this.closest('dialog').querySelector('[data-step=\'2\']').classList.add('hidden');"
+                class="text-sm text-stone-500 hover:text-stone-900 inline-flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          Retour
+        </button>
+        <button type="button" onclick="document.getElementById('validate-modal').close()"
+                class="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-500"
+                aria-label="Fermer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <h3 class="font-bold text-lg mb-1">Saisir manuellement</h3>
+      <p class="text-xs text-stone-500 mb-4">Entre la durée et la distance de ta séance.</p>
+      <form method="post" action="/sessions/{{ session.id }}/manual-actuals" class="space-y-3">
+        <div>
+          <label class="block text-xs text-stone-600 font-medium mb-1">Durée (minutes)</label>
+          <input type="number" name="duration_min" step="0.1" min="0.1" required
+                 placeholder="{{ session.estimated_duration_min or 40 }}"
+                 class="w-full px-3 py-3 rounded-lg border border-stone-200 focus:outline-none focus:border-emerald-400 bg-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-stone-600 font-medium mb-1">Distance (km)</label>
+          <input type="number" name="distance_km" step="0.01" min="0.01" required
+                 placeholder="{{ '%.1f'|format(session.estimated_distance_km or 6.0) }}"
+                 class="w-full px-3 py-3 rounded-lg border border-stone-200 focus:outline-none focus:border-emerald-400 bg-white" />
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Enregistrer</button>
+      </form>
+    </div>
+  </div>
+</dialog>
+{% endif %}
 
 <script>
   // Loading state pour le formulaire d'export
@@ -441,5 +496,9 @@
 <style>
   @keyframes spin { to { transform: rotate(360deg); } }
   .animate-spin { animation: spin 0.8s linear infinite; }
+  /* Modal styling : centre + animation */
+  dialog#validate-modal { border: none; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+  dialog#validate-modal[open] { animation: modalIn 0.18s ease-out; }
+  @keyframes modalIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>
 {% endblock %}

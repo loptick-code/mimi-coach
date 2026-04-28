@@ -368,7 +368,7 @@ async def pick_garmin_page(
     try:
         activities = garmin_client.fetch_recent_running_activities(
             athlete.garmin_token_encrypted,
-            limit=30,
+            limit=5,
             on_token_refreshed=_persist_token,
         )
     except garmin_client.GarminError as exc:

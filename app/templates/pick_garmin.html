@@ -89,7 +89,7 @@
   </div>
 
   <p class="text-xs text-stone-500 mt-4 text-center">
-    {{ activities | length }} activité{% if activities | length > 1 %}s{% endif %} de course récente{% if activities | length > 1 %}s{% endif %} sur ton compte Garmin.
+    {{ activities | length }} dernière{% if activities | length > 1 %}s{% endif %} course{% if activities | length > 1 %}s{% endif %} sur ton compte Garmin.
   </p>
 {% endif %}
 
