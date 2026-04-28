@@ -121,6 +121,7 @@ class GarminActivitySummary:
     distance_m: float
     start_time: Optional[_dt.datetime]
     activity_type: str
+    name: str = ""
 
 
 _RUNNING_TYPES = {
@@ -134,21 +135,47 @@ _RUNNING_TYPES = {
 }
 
 
-def fetch_running_activity_for_date(
-    token_encrypted: bytes,
-    target_date: _dt.date,
-    on_token_refreshed: Callable[[bytes], None] | None = None,
-) -> Optional[GarminActivitySummary]:
-    """Cherche l'activite running de Garmin pour `target_date`.
+def _activity_dict_to_summary(a: dict) -> Optional["GarminActivitySummary"]:
+    """Convertit un dict d'activite Garmin en GarminActivitySummary, ou None si invalide / pas un run."""
+    type_key = (a.get("activityType") or {}).get("typeKey", "").lower()
+    if type_key not in _RUNNING_TYPES:
+        return None
+    activity_id = a.get("activityId")
+    duration = a.get("duration")
+    distance = a.get("distance")
+    if not activity_id or not duration or not distance:
+        return None
+    start_str = a.get("startTimeLocal") or a.get("startTimeGMT")
+    start_dt = None
+    if start_str:
+        try:
+            start_dt = _dt.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    return GarminActivitySummary(
+        activity_id=int(activity_id),
+        duration_sec=int(duration),
+        distance_m=float(distance),
+        start_time=start_dt,
+        activity_type=type_key,
+        name=a.get("activityName") or "",
+    )
 
-    Retourne la plus longue activite running du jour ou None si aucune trouvee.
-    Ne leve pas si rien trouve (cas normal : montre pas synchro, jour off, etc.).
+
+def fetch_recent_running_activities(
+    token_encrypted: bytes,
+    limit: int = 30,
+    on_token_refreshed: Callable[[bytes], None] | None = None,
+) -> list["GarminActivitySummary"]:
+    """Recupere les `limit` activites running les plus recentes du compte Garmin.
+
+    Pas de filtre par date - retourne toutes les courses recentes pour que
+    l'utilisateur puisse choisir laquelle assigner a la seance.
     """
     client = resume_client(token_encrypted)
     try:
-        activities = client.get_activities_by_date(
-            target_date.isoformat(), target_date.isoformat()
-        )
+        # get_activities(start, limit) renvoie les `limit` activites a partir de l'index `start`
+        activities = client.get_activities(0, limit)
     except Exception as exc:
         raise GarminError(f"Echec de la recuperation des activites : {exc}") from exc
 
@@ -158,41 +185,20 @@ def fetch_running_activity_for_date(
             on_token_refreshed(encrypt(new_token))
 
     if not activities:
-        return None
+        return []
 
-    # Filtre running, garde la plus longue (au cas ou plusieurs runs)
-    candidates: list[GarminActivitySummary] = []
+    summaries: list[GarminActivitySummary] = []
     for a in activities:
-        type_key = (a.get("activityType") or {}).get("typeKey", "").lower()
-        if type_key not in _RUNNING_TYPES:
-            continue
-        activity_id = a.get("activityId")
-        duration = a.get("duration")  # secondes (float)
-        distance = a.get("distance")  # metres (float)
-        if not activity_id or not duration or not distance:
-            continue
-        start_str = a.get("startTimeLocal") or a.get("startTimeGMT")
-        start_dt = None
-        if start_str:
-            try:
-                start_dt = _dt.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-            except ValueError:
-                pass
-        candidates.append(
-            GarminActivitySummary(
-                activity_id=int(activity_id),
-                duration_sec=int(duration),
-                distance_m=float(distance),
-                start_time=start_dt,
-                activity_type=type_key,
-            )
-        )
+        s = _activity_dict_to_summary(a)
+        if s is not None:
+            summaries.append(s)
 
-    if not candidates:
-        return None
-
-    candidates.sort(key=lambda c: c.duration_sec, reverse=True)
-    return candidates[0]
+    # Tri par date descendante (plus recent en premier)
+    summaries.sort(
+        key=lambda x: x.start_time or _dt.datetime.min,
+        reverse=True,
+    )
+    return summaries
 
 
 def _safe_display_name(client: Garmin) -> str | None:

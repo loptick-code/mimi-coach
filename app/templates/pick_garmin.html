@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Choisir l'activité Garmin{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/sessions/{{ session.id }}#validation" class="text-sm text-stone-500 hover:text-stone-900 inline-flex items-center gap-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    Retour à la séance
+  </a>
+</div>
+
+<div class="mb-5">
+  <div class="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-1">{{ session.date.strftime("%A %d %B %Y") }}</div>
+  <h2 class="text-xl font-bold tracking-tight">{{ session.name }}</h2>
+  <p class="text-sm text-stone-500 mt-1">Choisis l'activité Garmin qui correspond à cette séance.</p>
+</div>
+
+{% if error %}
+  <div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100">
+    ❌ Erreur Garmin : {{ error }}
+  </div>
+{% endif %}
+
+{% if not activities and not error %}
+  <div class="card card-pad text-center py-12">
+    <div class="text-4xl mb-3">🏃</div>
+    <h3 class="font-semibold text-stone-700">Aucune course trouvée</h3>
+    <p class="text-sm text-stone-500 mt-1 max-w-xs mx-auto">
+      Garmin n'a renvoyé aucune activité de course récente pour ce compte.
+    </p>
+    <a href="/sessions/{{ session.id }}#validation" class="btn btn-secondary mt-5">Retour</a>
+  </div>
+{% endif %}
+
+{% if activities %}
+  <div class="space-y-2">
+    {% for a in activities %}
+      {% set act_min = (a.duration_sec / 60) | round(0) | int %}
+      {% set act_km = a.distance_m / 1000 %}
+      {% set pace_total_sec = (a.duration_sec / act_km) | round(0) | int if act_km > 0 else 0 %}
+      {% set pace_min = (pace_total_sec // 60) | int %}
+      {% set pace_sec = (pace_total_sec % 60) | int %}
+      {% set is_session_date = a.start_time and a.start_time.date() == session.date %}
+      {% set is_already_assigned = session.garmin_activity_id == a.activity_id %}
+      <form method="post" action="/sessions/{{ session.id }}/pick-garmin">
+        <input type="hidden" name="activity_id" value="{{ a.activity_id }}" />
+        <input type="hidden" name="duration_sec" value="{{ a.duration_sec }}" />
+        <input type="hidden" name="distance_m" value="{{ a.distance_m }}" />
+        <button type="submit"
+                class="w-full text-left bg-white rounded-2xl border {% if is_already_assigned %}border-emerald-300 ring-2 ring-emerald-100{% elif is_session_date %}border-amber-200 bg-amber-50/30{% else %}border-stone-100{% endif %} hover:border-stone-300 hover:shadow-sm transition group p-4 active:scale-[0.99]">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 text-[11px] text-stone-500 mb-0.5 flex-wrap">
+                {% if a.start_time %}
+                  <span>{{ a.start_time.strftime("%a %d %b %Y") }}</span>
+                  <span>·</span>
+                  <span>{{ a.start_time.strftime("%H:%M") }}</span>
+                {% else %}
+                  <span>Date inconnue</span>
+                {% endif %}
+                {% if is_session_date %}
+                  <span>·</span>
+                  <span class="text-amber-700 font-medium">jour de la séance</span>
+                {% endif %}
+                {% if is_already_assigned %}
+                  <span>·</span>
+                  <span class="text-emerald-700 font-medium">✓ déjà assignée</span>
+                {% endif %}
+              </div>
+              <div class="font-semibold text-stone-900 leading-tight truncate">
+                {{ a.name or a.activity_type | replace('_', ' ') | title }}
+              </div>
+              <div class="flex items-center gap-2 mt-1.5 text-xs text-stone-600">
+                <span class="font-semibold">{{ act_min }} min</span>
+                <span class="text-stone-300">·</span>
+                <span class="font-semibold">{{ '%.2f'|format(act_km) }} km</span>
+                <span class="text-stone-300">·</span>
+                <span class="font-semibold">{{ pace_min }}:{{ '%02d'|format(pace_sec) }}/km</span>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </button>
+      </form>
+    {% endfor %}
+  </div>
+
+  <p class="text-xs text-stone-500 mt-4 text-center">
+    {{ activities | length }} activité{% if activities | length > 1 %}s{% endif %} de course récente{% if activities | length > 1 %}s{% endif %} sur ton compte Garmin.
+  </p>
+{% endif %}
+
+{% endblock %}

@@ -89,18 +89,13 @@
 {% elif qs.get('success') == 'feedback' %}
 <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-100">
   <div class="font-semibold">✅ Séance validée</div>
-  <div class="text-xs mt-1 opacity-75">
-    Ressenti noté, allures futures ajustées.
-    {% if qs.get('garmin') == 'ok' %}Activité Garmin importée.{% endif %}
-    {% if qs.get('garmin') == 'no_activity' %}Aucune activité Garmin trouvée pour cette date.{% endif %}
-    {% if qs.get('garmin') == 'garmin_error' %}Garmin n'a pas pu être joint, le réalisé n'a pas été importé.{% endif %}
-  </div>
+  <div class="text-xs mt-1 opacity-75">Ressenti noté, allures futures ajustées.</div>
   <div class="text-[11px] italic mt-2 text-emerald-700/80">« {{ _mimi | random }} » 🎵</div>
 </div>
-{% elif qs.get('success') == 'resynced' %}
+{% elif qs.get('success') == 'actuals_imported' %}
 <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-100">
-  <div class="font-semibold">✅ Réalisé Garmin mis à jour</div>
-  <div class="text-xs mt-1 opacity-75">Durée, distance et allure réelles importées depuis Garmin Connect.</div>
+  <div class="font-semibold">✅ Activité Garmin assignée</div>
+  <div class="text-xs mt-1 opacity-75">Durée, distance et allure réelles enregistrées. Tu peux maintenant donner ton ressenti.</div>
 </div>
 {% elif qs.get('success') == 'manual_actuals' %}
 <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-100">
@@ -113,8 +108,8 @@
 </div>
 {% elif qs.get('error') == 'no_activity' %}
 <div class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-900 text-sm font-medium border border-amber-100">
-  ⚠️ Aucune activité Garmin trouvée pour le {{ session.date.strftime("%d/%m/%Y") }}.
-  <div class="text-xs font-normal mt-1 opacity-80">Vérifie que ta montre est bien synchronisée avec Garmin Connect.</div>
+  ⚠️ Aucune activité de course trouvée sur ton compte Garmin.
+  <div class="text-xs font-normal mt-1 opacity-80">Vérifie que ta montre est bien synchronisée avec Garmin Connect, ou saisis le réalisé manuellement.</div>
 </div>
 {% elif qs.get('error') == 'garmin_error' %}
 <div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100">
@@ -222,17 +217,14 @@
 </div>
 
 <!-- VALIDATION -->
-<div class="card card-pad mb-4">
+<div id="validation" class="card card-pad mb-4 scroll-mt-4">
   <h3 class="font-bold mb-3 flex items-center gap-2">
     <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-    Validation & ressenti
+    Valider ma séance
   </h3>
+
+  {# === ETAT 3 : seance entierement validee (feedback present) === #}
   {% if session.feedback %}
-    {% set fb_label = {
-      'too_easy': ('🟢', 'Trop facile'),
-      'perfect': ('🟡', 'Parfait'),
-      'too_hard': ('🔴', 'Trop dur'),
-    }[session.feedback.value] %}
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
         {{ feedback_pill(session.feedback) }}
@@ -242,12 +234,10 @@
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         {% if athlete.garmin_token_encrypted %}
-          <form method="post" action="/sessions/{{ session.id }}/resync-garmin">
-            <button class="btn btn-ghost text-sm" title="Re-importe la durée et la distance depuis Garmin Connect">
-              <svg class="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              Re-sync Garmin
-            </button>
-          </form>
+          <a href="/sessions/{{ session.id }}/pick-garmin" class="btn btn-ghost text-sm" title="Choisir une autre activité Garmin">
+            <svg class="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Changer activité Garmin
+          </a>
         {% endif %}
         <form method="post" action="/sessions/{{ session.id }}/unvalidate"
               onsubmit="return confirm('Annuler la validation ? L ajustement d allure sera remis à zéro.')">
@@ -256,19 +246,12 @@
       </div>
     </div>
 
-    {# Saisie manuelle des actuals : disponible quand validee, comme fallback Garmin #}
-    <details class="mt-4 pt-4 border-t border-stone-100" {% if not session.actual_duration_sec %}open{% endif %}>
+    <details class="mt-4 pt-4 border-t border-stone-100">
       <summary class="cursor-pointer text-sm font-semibold text-stone-700 flex items-center gap-2">
         <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-        Saisie manuelle du réalisé
-        {% if session.actual_duration_sec and not session.garmin_activity_id %}
-          <span class="text-[10px] uppercase tracking-wider text-emerald-600 ml-1">enregistré</span>
-        {% endif %}
+        Modifier le réalisé manuellement
       </summary>
-      <p class="text-xs text-stone-500 mt-2 mb-3">
-        À utiliser si tu n'avais pas ta montre ou si Garmin n'a rien trouvé.
-      </p>
-      <form method="post" action="/sessions/{{ session.id }}/manual-actuals" class="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
+      <form method="post" action="/sessions/{{ session.id }}/manual-actuals" class="mt-3 grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
         <div>
           <label class="block text-[11px] text-stone-500 mb-1">Durée (min)</label>
           <input type="number" name="duration_min" step="0.1" min="0.1" required
@@ -284,48 +267,127 @@
         <button type="submit" class="btn btn-secondary text-sm">Enregistrer</button>
       </form>
     </details>
-  {% else %}
-    <p class="text-sm text-stone-600 mb-3">Comment as-tu trouvé cette séance ?</p>
+
+  {# === ETAT 2 : actuals presents, pas de feedback - on demande le ressenti === #}
+  {% elif session.actual_duration_sec and session.actual_distance_m %}
+    {% set act_min2 = (session.actual_duration_sec / 60) | round(0) | int %}
+    {% set act_km2 = session.actual_distance_m / 1000 %}
+    {% set pace_total_sec2 = (session.actual_duration_sec / act_km2) | round(0) | int if act_km2 > 0 else 0 %}
+    <div class="mb-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center gap-3 text-sm">
+      <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      <div class="flex-1">
+        <div class="font-semibold text-emerald-800">Réalisé enregistré</div>
+        <div class="text-xs text-emerald-700/80">
+          {{ act_min2 }} min · {{ '%.2f'|format(act_km2) }} km · {{ pace_total_sec2 // 60 }}:{{ '%02d'|format(pace_total_sec2 % 60) }}/km
+        </div>
+      </div>
+    </div>
+    <p class="text-sm text-stone-600 mb-3 font-medium">Comment as-tu trouvé cette séance ?</p>
     <form method="post" action="/sessions/{{ session.id }}/feedback">
       <div class="grid grid-cols-3 gap-2">
         <button type="submit" name="feedback" value="too_easy"
                 class="group rounded-xl bg-white border border-stone-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition active:scale-95 px-3 py-4 text-center focus:outline-none focus:ring-2 focus:ring-emerald-200">
-          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-          </svg>
+          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
           <div class="text-sm font-semibold mt-2">Trop facile</div>
           <div class="text-[11px] text-stone-500 mt-0.5">−2% allures</div>
         </button>
         <button type="submit" name="feedback" value="perfect"
                 class="group rounded-xl bg-white border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 transition active:scale-95 px-3 py-4 text-center focus:outline-none focus:ring-2 focus:ring-amber-200">
-          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-          </svg>
+          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
           <div class="text-sm font-semibold mt-2">Parfait</div>
           <div class="text-[11px] text-stone-500 mt-0.5">aucun changement</div>
         </button>
         <button type="submit" name="feedback" value="too_hard"
                 class="group rounded-xl bg-white border border-stone-200 hover:border-rose-400 hover:bg-rose-50/50 transition active:scale-95 px-3 py-4 text-center focus:outline-none focus:ring-2 focus:ring-rose-200">
-          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-rose-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-          </svg>
+          <svg class="w-5 h-5 mx-auto text-stone-400 group-hover:text-rose-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
           <div class="text-sm font-semibold mt-2">Trop dur</div>
           <div class="text-[11px] text-stone-500 mt-0.5">+2% allures</div>
         </button>
       </div>
     </form>
-    <p class="text-xs text-stone-500 mt-3 leading-relaxed">
-      Ton ressenti ajustera les allures cibles des séances suivantes.
-    </p>
+    <details class="mt-4 pt-4 border-t border-stone-100">
+      <summary class="cursor-pointer text-xs text-stone-500 hover:text-stone-700">Corriger les valeurs du réalisé</summary>
+      <form method="post" action="/sessions/{{ session.id }}/manual-actuals" class="mt-3 grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
+        <div>
+          <label class="block text-[11px] text-stone-500 mb-1">Durée (min)</label>
+          <input type="number" name="duration_min" step="0.1" min="0.1" required
+                 value="{{ '%.1f'|format(session.actual_duration_sec / 60) }}"
+                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400" />
+        </div>
+        <div>
+          <label class="block text-[11px] text-stone-500 mb-1">Distance (km)</label>
+          <input type="number" name="distance_km" step="0.01" min="0.01" required
+                 value="{{ '%.2f'|format(session.actual_distance_m / 1000) }}"
+                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400" />
+        </div>
+        <button type="submit" class="btn btn-secondary text-sm">Enregistrer</button>
+      </form>
+    </details>
+
+  {# === ETAT 1 : ni actuals ni feedback - on demande la source du realise === #}
+  {% else %}
+    <p class="text-sm text-stone-600 mb-3">D'abord, dis-moi ce que tu as fait :</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+      {% if athlete.garmin_token_encrypted %}
+        <a href="/sessions/{{ session.id }}/pick-garmin"
+           class="block w-full group rounded-xl bg-white border border-stone-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition active:scale-95 px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-emerald-200">
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-stone-400 group-hover:text-emerald-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <div>
+              <div class="text-sm font-semibold">Choisir depuis Garmin</div>
+              <div class="text-[11px] text-stone-500 mt-0.5">Liste de tes courses récentes</div>
+            </div>
+          </div>
+        </a>
+      {% else %}
+        <a href="/settings/garmin"
+           class="block w-full rounded-xl bg-white border border-amber-200 hover:bg-amber-50/50 transition px-4 py-4 text-left">
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div>
+              <div class="text-sm font-semibold text-amber-900">Connecter Garmin</div>
+              <div class="text-[11px] text-amber-700/80 mt-0.5">Pour activer l'import auto</div>
+            </div>
+          </div>
+        </a>
+      {% endif %}
+      <button type="button" onclick="document.getElementById('manual-form').classList.toggle('hidden')"
+              class="group rounded-xl bg-white border border-stone-200 hover:border-stone-400 hover:bg-stone-50 transition active:scale-95 px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-stone-200">
+        <div class="flex items-center gap-3">
+          <svg class="w-6 h-6 text-stone-400 group-hover:text-stone-600 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          <div>
+            <div class="text-sm font-semibold">Saisir manuellement</div>
+            <div class="text-[11px] text-stone-500 mt-0.5">Sans montre / sans Garmin</div>
+          </div>
+        </div>
+      </button>
+    </div>
+    <form id="manual-form" method="post" action="/sessions/{{ session.id }}/manual-actuals" class="hidden mt-2 p-3 rounded-xl bg-stone-50 border border-stone-100">
+      <div class="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
+        <div>
+          <label class="block text-[11px] text-stone-600 font-medium mb-1">Durée (min)</label>
+          <input type="number" name="duration_min" step="0.1" min="0.1" required
+                 placeholder="{{ session.estimated_duration_min or 40 }}"
+                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400 bg-white" />
+        </div>
+        <div>
+          <label class="block text-[11px] text-stone-600 font-medium mb-1">Distance (km)</label>
+          <input type="number" name="distance_km" step="0.01" min="0.01" required
+                 placeholder="{{ '%.1f'|format(session.estimated_distance_km or 6.0) }}"
+                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400 bg-white" />
+        </div>
+        <button type="submit" class="btn btn-primary text-sm">Enregistrer</button>
+      </div>
+    </form>
   {% endif %}
 </div>
 
-<!-- CTA bottom sticky : Exporter (primaire) -->
+<!-- CTA bottom sticky : Exporter (secondaire) + Valider ma séance (primaire) -->
 <div class="fixed bottom-0 left-0 right-0 z-20 border-t border-stone-200/60"
      style="background: rgba(250,250,249,0.95); backdrop-filter: blur(8px); padding: 0.75rem; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));">
   <div class="max-w-3xl mx-auto flex gap-2 items-center">
     <form method="post" action="/sessions/{{ session.id }}/export" class="flex-1" data-export-form>
-      <button class="btn btn-primary w-full" data-export-btn>
+      <button class="btn btn-secondary w-full" data-export-btn>
         <span class="flex items-center gap-2" data-export-idle>
           {% if not session.pushed_at %}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
@@ -343,8 +405,14 @@
         </span>
       </button>
     </form>
-    <a href="/sessions/{{ session.id }}/json" class="btn btn-ghost btn-icon" title="Télécharger JSON" style="flex-shrink: 0;">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+    <a href="#validation" class="btn btn-primary flex-1 flex items-center justify-center gap-2">
+      {% if session.feedback %}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        <span>Voir la validation</span>
+      {% else %}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <span>Valider ma séance</span>
+      {% endif %}
     </a>
   </div>
   {% if session.pushed_at %}

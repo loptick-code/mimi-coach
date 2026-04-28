@@ -324,51 +324,23 @@ async def submit_feedback(
     s.validated_at = datetime.utcnow()
     s.pace_adjustment_at_validation = snapshot
 
-    # Tente de recuperer l'activite Garmin du jour pour stocker le realise.
-    # Echec silencieux : la validation reste valide meme si Garmin ne repond pas
-    # ou si aucune activite n'est trouvee (montre pas synchro, run sans GPS, etc.)
-    garmin_status = "ok"
-    if athlete.garmin_token_encrypted:
-        def _persist_token(new_token: bytes) -> None:
-            athlete.garmin_token_encrypted = new_token
-            db.add(athlete)
-
-        try:
-            activity = garmin_client.fetch_running_activity_for_date(
-                athlete.garmin_token_encrypted,
-                s.date,
-                on_token_refreshed=_persist_token,
-            )
-            if activity is not None:
-                s.garmin_activity_id = activity.activity_id
-                s.actual_duration_sec = activity.duration_sec
-                s.actual_distance_m = activity.distance_m
-            else:
-                garmin_status = "no_activity"
-        except garmin_client.GarminError:
-            garmin_status = "garmin_error"
-    else:
-        garmin_status = "garmin_not_connected"
-
     db.add(athlete)
     db.add(s)
     db.commit()
     return RedirectResponse(
-        url=f"/sessions/{session_id}?success=feedback&garmin={garmin_status}",
+        url=f"/sessions/{session_id}?success=feedback#validation",
         status_code=303,
     )
 
 
-@router.post("/sessions/{session_id}/resync-garmin")
-async def resync_garmin(
+@router.get("/sessions/{session_id}/pick-garmin")
+async def pick_garmin_page(
+    request: Request,
     session_id: int,
     user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
-    """Re-importe le realise depuis Garmin pour une seance deja validee.
-
-    Utile quand la montre n'avait pas synchro au moment de la validation.
-    """
+    """Liste les activites Garmin recentes pour qu'on choisisse laquelle assigner."""
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
@@ -378,41 +350,68 @@ async def resync_garmin(
     athlete = db.get(User, s.athlete_id)
     if athlete is None or not athlete.garmin_token_encrypted:
         return RedirectResponse(
-            url=f"/sessions/{session_id}?error=garmin_not_connected",
+            url=f"/sessions/{session_id}?error=garmin_not_connected#validation",
             status_code=303,
         )
 
     def _persist_token(new_token: bytes) -> None:
         athlete.garmin_token_encrypted = new_token
         db.add(athlete)
+        db.commit()
 
+    error: Optional[str] = None
+    activities: list = []
     try:
-        activity = garmin_client.fetch_running_activity_for_date(
+        activities = garmin_client.fetch_recent_running_activities(
             athlete.garmin_token_encrypted,
-            s.date,
+            limit=30,
             on_token_refreshed=_persist_token,
         )
-    except garmin_client.GarminError:
-        db.commit()
+    except garmin_client.GarminError as exc:
+        error = str(exc)
+
+    return templates.TemplateResponse(
+        request,
+        "pick_garmin.html",
+        {
+            "user": user,
+            "session": s,
+            "athlete": athlete,
+            "activities": activities,
+            "error": error,
+        },
+    )
+
+
+@router.post("/sessions/{session_id}/pick-garmin")
+async def pick_garmin_submit(
+    session_id: int,
+    activity_id: int = Form(...),
+    duration_sec: int = Form(...),
+    distance_m: float = Form(...),
+    user: User = Depends(require_user),
+    db: DBSession = Depends(get_session),
+):
+    """Assigne l'activite Garmin choisie comme realise de la seance."""
+    s = db.get(Session, session_id)
+    if s is None:
+        raise HTTPException(404)
+    if user.role == UserRole.athlete and s.athlete_id != user.id:
+        raise HTTPException(403)
+
+    if duration_sec <= 0 or distance_m <= 0:
         return RedirectResponse(
-            url=f"/sessions/{session_id}?error=garmin_error",
+            url=f"/sessions/{session_id}?error=invalid_actuals#validation",
             status_code=303,
         )
 
-    if activity is None:
-        db.commit()
-        return RedirectResponse(
-            url=f"/sessions/{session_id}?error=no_activity",
-            status_code=303,
-        )
-
-    s.garmin_activity_id = activity.activity_id
-    s.actual_duration_sec = activity.duration_sec
-    s.actual_distance_m = activity.distance_m
+    s.garmin_activity_id = activity_id
+    s.actual_duration_sec = duration_sec
+    s.actual_distance_m = distance_m
     db.add(s)
     db.commit()
     return RedirectResponse(
-        url=f"/sessions/{session_id}?success=resynced",
+        url=f"/sessions/{session_id}?success=actuals_imported#validation",
         status_code=303,
     )
 
@@ -434,7 +433,7 @@ async def manual_actuals(
 
     if duration_min <= 0 or distance_km <= 0:
         return RedirectResponse(
-            url=f"/sessions/{session_id}?error=invalid_actuals",
+            url=f"/sessions/{session_id}?error=invalid_actuals#validation",
             status_code=303,
         )
 
@@ -445,7 +444,7 @@ async def manual_actuals(
     db.add(s)
     db.commit()
     return RedirectResponse(
-        url=f"/sessions/{session_id}?success=manual_actuals",
+        url=f"/sessions/{session_id}?success=manual_actuals#validation",
         status_code=303,
     )
 
