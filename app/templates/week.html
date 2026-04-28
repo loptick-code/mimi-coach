@@ -103,6 +103,21 @@
             <span>·</span>
             {{ difficulty_bolts(s.difficulty, size='sm') }}
           </div>
+          {% if s.actual_duration_sec and s.actual_distance_m %}
+            {% set act_min = (s.actual_duration_sec / 60) | round(0) | int %}
+            {% set act_km = s.actual_distance_m / 1000 %}
+            {% set pace_total_sec = (s.actual_duration_sec / act_km) | round(0) | int if act_km > 0 else 0 %}
+            {% set pace_min = (pace_total_sec // 60) | int %}
+            {% set pace_sec = (pace_total_sec % 60) | int %}
+            <div class="flex items-center gap-2 mt-1 text-[11px] text-emerald-700">
+              <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              <span class="font-semibold">{{ act_min }} min</span>
+              <span class="opacity-60">·</span>
+              <span class="font-semibold">{{ '%.2f'|format(act_km) }} km</span>
+              <span class="opacity-60">·</span>
+              <span class="font-semibold">{{ pace_min }}:{{ '%02d'|format(pace_sec) }}/km</span>
+            </div>
+          {% endif %}
         </div>
         <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </div>
