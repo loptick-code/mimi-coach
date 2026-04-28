@@ -228,6 +228,64 @@ async def submit_feedback(
     )
 
 
+@router.post("/sessions/{session_id}/resync-garmin")
+async def resync_garmin(
+    session_id: int,
+    user: User = Depends(require_user),
+    db: DBSession = Depends(get_session),
+):
+    """Re-importe le realise depuis Garmin pour une seance deja validee.
+
+    Utile quand la montre n'avait pas synchro au moment de la validation.
+    """
+    s = db.get(Session, session_id)
+    if s is None:
+        raise HTTPException(404)
+    if user.role == UserRole.athlete and s.athlete_id != user.id:
+        raise HTTPException(403)
+
+    athlete = db.get(User, s.athlete_id)
+    if athlete is None or not athlete.garmin_token_encrypted:
+        return RedirectResponse(
+            url=f"/sessions/{session_id}?error=garmin_not_connected",
+            status_code=303,
+        )
+
+    def _persist_token(new_token: bytes) -> None:
+        athlete.garmin_token_encrypted = new_token
+        db.add(athlete)
+
+    try:
+        activity = garmin_client.fetch_running_activity_for_date(
+            athlete.garmin_token_encrypted,
+            s.date,
+            on_token_refreshed=_persist_token,
+        )
+    except garmin_client.GarminError:
+        db.commit()
+        return RedirectResponse(
+            url=f"/sessions/{session_id}?error=garmin_error",
+            status_code=303,
+        )
+
+    if activity is None:
+        db.commit()
+        return RedirectResponse(
+            url=f"/sessions/{session_id}?error=no_activity",
+            status_code=303,
+        )
+
+    s.garmin_activity_id = activity.activity_id
+    s.actual_duration_sec = activity.duration_sec
+    s.actual_distance_m = activity.distance_m
+    db.add(s)
+    db.commit()
+    return RedirectResponse(
+        url=f"/sessions/{session_id}?success=resynced",
+        status_code=303,
+    )
+
+
 @router.post("/sessions/{session_id}/unvalidate")
 async def unvalidate(
     session_id: int,

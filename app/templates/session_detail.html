@@ -97,6 +97,21 @@
   </div>
   <div class="text-[11px] italic mt-2 text-emerald-700/80">« {{ _mimi | random }} » 🎵</div>
 </div>
+{% elif qs.get('success') == 'resynced' %}
+<div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-100">
+  <div class="font-semibold">✅ Réalisé Garmin mis à jour</div>
+  <div class="text-xs mt-1 opacity-75">Durée, distance et allure réelles importées depuis Garmin Connect.</div>
+</div>
+{% elif qs.get('error') == 'no_activity' %}
+<div class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-900 text-sm font-medium border border-amber-100">
+  ⚠️ Aucune activité Garmin trouvée pour le {{ session.date.strftime("%d/%m/%Y") }}.
+  <div class="text-xs font-normal mt-1 opacity-80">Vérifie que ta montre est bien synchronisée avec Garmin Connect.</div>
+</div>
+{% elif qs.get('error') == 'garmin_error' %}
+<div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100">
+  ❌ Erreur lors de l'appel à Garmin.
+  <div class="text-xs font-normal mt-1 opacity-80">Reconnecte ton compte si l'erreur persiste.</div>
+</div>
 {% elif qs.get('error') == 'garmin_not_connected' %}
 <div class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-900 text-sm font-medium border border-amber-100">
   ⚠️ Le compte Garmin n'est pas connecté. <a href="/settings/garmin" class="underline">Configure-le ici</a>.
@@ -214,10 +229,20 @@
           <div class="text-xs text-stone-500 mt-1">Validée le {{ session.validated_at.strftime("%d/%m/%Y") }}</div>
         {% endif %}
       </div>
-      <form method="post" action="/sessions/{{ session.id }}/unvalidate"
-            onsubmit="return confirm('Annuler la validation ? L ajustement d allure sera remis à zéro.')">
-        <button class="btn btn-ghost text-sm">Annuler validation</button>
-      </form>
+      <div class="flex items-center gap-2 flex-wrap">
+        {% if athlete.garmin_token_encrypted %}
+          <form method="post" action="/sessions/{{ session.id }}/resync-garmin">
+            <button class="btn btn-ghost text-sm" title="Re-importe la durée et la distance depuis Garmin Connect">
+              <svg class="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Re-sync Garmin
+            </button>
+          </form>
+        {% endif %}
+        <form method="post" action="/sessions/{{ session.id }}/unvalidate"
+              onsubmit="return confirm('Annuler la validation ? L ajustement d allure sera remis à zéro.')">
+          <button class="btn btn-ghost text-sm">Annuler validation</button>
+        </form>
+      </div>
     </div>
   {% else %}
     <p class="text-sm text-stone-600 mb-3">Comment as-tu trouvé cette séance ?</p>
