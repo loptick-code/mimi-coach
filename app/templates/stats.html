@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Stats — {{ period_label }}{% endblock %}
+
+{% block content %}
+
+{# Helper: format secondes en h:MM ou X min #}
+{% macro fmt_seconds(secs) %}
+  {%- set total_min = (secs // 60) | int -%}
+  {%- if total_min >= 60 -%}{{ (total_min // 60) }}h{{ '%02d'|format(total_min % 60) }}
+  {%- else -%}{{ total_min }} min
+  {%- endif -%}
+{% endmacro %}
+
+{# Helper: format minutes en h:MM ou X min #}
+{% macro fmt_minutes(mins) %}
+  {%- if mins >= 60 -%}{{ (mins // 60) }}h{{ '%02d'|format(mins % 60) }}
+  {%- else -%}{{ mins | int }} min
+  {%- endif -%}
+{% endmacro %}
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-5 gap-2">
+  <div>
+    <div class="text-xs uppercase tracking-wider text-stone-500 font-semibold">Récap</div>
+    <h2 class="text-xl font-bold tracking-tight capitalize">{{ period_label }}</h2>
+  </div>
+</div>
+
+<!-- Selecteur periode -->
+<div class="flex items-center gap-1 bg-stone-100 rounded-full p-1 mb-5 text-sm">
+  <a href="/stats?period=month"
+     class="flex-1 text-center py-1.5 rounded-full transition {% if period == 'month' %}bg-white shadow-sm font-semibold{% else %}text-stone-600 hover:text-stone-900{% endif %}">Ce mois</a>
+  <a href="/stats?period=year&year={{ today_year }}"
+     class="flex-1 text-center py-1.5 rounded-full transition {% if period == 'year' %}bg-white shadow-sm font-semibold{% else %}text-stone-600 hover:text-stone-900{% endif %}">Cette année</a>
+  <a href="/stats?period=all"
+     class="flex-1 text-center py-1.5 rounded-full transition {% if period == 'all' %}bg-white shadow-sm font-semibold{% else %}text-stone-600 hover:text-stone-900{% endif %}">Tout</a>
+</div>
+
+<!-- Realise (gros chiffres) -->
+<div class="card card-pad mb-4">
+  <div class="text-xs uppercase tracking-wider text-emerald-600 font-semibold mb-3">✓ Réalisé sur Garmin</div>
+  {% if done_count > 0 %}
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      <div>
+        <div class="text-3xl font-bold tracking-tight leading-none text-emerald-700">{{ '%.1f'|format(done_distance_km) }}</div>
+        <div class="text-xs text-stone-500 mt-1.5">km parcourus</div>
+      </div>
+      <div>
+        <div class="text-3xl font-bold tracking-tight leading-none text-emerald-700">{{ fmt_seconds(done_duration_sec) }}</div>
+        <div class="text-xs text-stone-500 mt-1.5">temps total</div>
+      </div>
+      <div>
+        {% set pm = (done_avg_pace_sec_per_km // 60) | int %}
+        {% set ps = (done_avg_pace_sec_per_km % 60) | int %}
+        <div class="text-3xl font-bold tracking-tight leading-none text-emerald-700">{{ pm }}:{{ '%02d'|format(ps) }}</div>
+        <div class="text-xs text-stone-500 mt-1.5">allure moy /km</div>
+      </div>
+    </div>
+    <div class="text-xs text-stone-500 pt-3 border-t border-stone-100">
+      <span class="font-semibold text-stone-700">{{ done_count }}</span> séances importées de Garmin
+      {% if validated_count > done_count %}
+        · <span class="text-amber-700">{{ validated_count - done_count }} validée{% if validated_count - done_count > 1 %}s{% endif %} sans Garmin</span>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="text-sm text-stone-500 py-4 text-center">
+      Aucune séance importée de Garmin sur cette période.
+      <div class="text-xs mt-1">Valide tes séances après ton run pour qu'elles apparaissent ici.</div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Programme -->
+<div class="card card-pad mb-4">
+  <div class="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-3">Programme prévu</div>
+  <div class="grid grid-cols-3 gap-3">
+    <div>
+      <div class="text-2xl font-bold tracking-tight leading-none">{{ planned_count }}</div>
+      <div class="text-xs text-stone-500 mt-1.5">séances</div>
+    </div>
+    <div>
+      <div class="text-2xl font-bold tracking-tight leading-none">{{ '%.1f'|format(planned_distance_km) }}<span class="text-base font-normal text-stone-400 ml-0.5">km</span></div>
+      <div class="text-xs text-stone-500 mt-1.5">distance prévue</div>
+    </div>
+    <div>
+      <div class="text-2xl font-bold tracking-tight leading-none">{{ fmt_minutes(planned_duration_min) }}</div>
+      <div class="text-xs text-stone-500 mt-1.5">durée prévue</div>
+    </div>
+  </div>
+  {% if planned_count > 0 and done_count > 0 %}
+    {% set pct = (done_count / planned_count * 100) | round %}
+    <div class="mt-4 pt-3 border-t border-stone-100">
+      <div class="flex items-center justify-between text-xs mb-1.5">
+        <span class="text-stone-600">Progression</span>
+        <span class="font-semibold text-stone-900">{{ pct }}%</span>
+      </div>
+      <div class="h-2 rounded-full bg-stone-100 overflow-hidden">
+        <div class="h-full bg-emerald-500 transition-all" style="width: {{ pct }}%"></div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Breakdown mensuel -->
+{% if monthly_breakdown %}
+<div class="card card-pad">
+  <div class="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-3">Détail par mois</div>
+  <div class="space-y-2">
+    {% for m in monthly_breakdown %}
+      <div class="flex items-center justify-between py-2 {% if not loop.last %}border-b border-stone-100{% endif %}">
+        <div class="capitalize text-sm font-medium text-stone-800">{{ m.label }}</div>
+        <div class="flex items-center gap-3 text-xs text-stone-600">
+          {% if m.count > 0 %}
+            <span class="font-semibold text-emerald-700">{{ '%.1f'|format(m.distance_km) }} km</span>
+            <span class="text-stone-400">·</span>
+            <span>{{ fmt_seconds(m.duration_min * 60) }}</span>
+            <span class="text-stone-400">·</span>
+            <span>{{ m.count }} séance{% if m.count > 1 %}s{% endif %}</span>
+          {% else %}
+            <span class="text-stone-400 italic">{{ '%.1f'|format(m.planned_km) }} km prévus</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

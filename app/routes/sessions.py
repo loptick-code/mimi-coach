@@ -114,6 +114,114 @@ async def home(
     )
 
 
+@router.get("/stats")
+async def stats(
+    request: Request,
+    period: str = "month",
+    year: Optional[int] = None,
+    user: User = Depends(require_user),
+    db: DBSession = Depends(get_session),
+):
+    """Recap des seances : ce mois / cette annee / tout, avec realise vs prevu."""
+    today = date.today()
+    athlete = _resolve_target_athlete(db, user)
+
+    if period not in ("month", "year", "all"):
+        period = "month"
+    target_year = year or today.year
+
+    # Bornes du periode + label affichable
+    if period == "month":
+        start = today.replace(day=1)
+        if start.month == 12:
+            end = date(start.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end = date(start.year, start.month + 1, 1) - timedelta(days=1)
+        period_label = today.strftime("%B %Y")
+    elif period == "year":
+        start = date(target_year, 1, 1)
+        end = date(target_year, 12, 31)
+        period_label = str(target_year)
+    else:  # all
+        start = date(2000, 1, 1)
+        end = date(2100, 1, 1)
+        period_label = "Tout"
+
+    sessions = db.exec(
+        select(Session)
+        .where(Session.athlete_id == athlete.id)
+        .where(Session.date >= start)
+        .where(Session.date <= end)
+        .order_by(Session.date)
+    ).all()
+
+    # Totaux planifies (toutes les seances du periode)
+    planned_count = len(sessions)
+    planned_duration_min = sum((s.estimated_duration_min or 0) for s in sessions)
+    planned_distance_km = sum((s.estimated_distance_km or 0) for s in sessions)
+
+    # Totaux realises (seules les seances avec actuals Garmin)
+    done = [s for s in sessions if s.actual_duration_sec and s.actual_distance_m]
+    done_count = len(done)
+    done_duration_sec = sum(s.actual_duration_sec or 0 for s in done)
+    done_distance_m = sum(s.actual_distance_m or 0 for s in done)
+    done_avg_pace_sec_per_km = (
+        int(done_duration_sec / (done_distance_m / 1000))
+        if done_distance_m > 0
+        else 0
+    )
+
+    # Validees (feedback non null) - peut-etre sans actuals
+    validated_count = sum(1 for s in sessions if s.feedback is not None)
+
+    # Breakdown mensuel (uniquement pour year/all)
+    monthly_breakdown: list[dict] = []
+    if period in ("year", "all") and sessions:
+        from collections import defaultdict
+        buckets: dict[tuple[int, int], dict] = defaultdict(
+            lambda: {"count": 0, "duration_sec": 0, "distance_m": 0, "planned_km": 0.0}
+        )
+        for s in sessions:
+            key = (s.date.year, s.date.month)
+            buckets[key]["planned_km"] += s.estimated_distance_km or 0
+            if s.actual_duration_sec and s.actual_distance_m:
+                buckets[key]["count"] += 1
+                buckets[key]["duration_sec"] += s.actual_duration_sec
+                buckets[key]["distance_m"] += s.actual_distance_m
+        for (yr, mo), v in sorted(buckets.items()):
+            monthly_breakdown.append({
+                "year": yr,
+                "month": mo,
+                "label": date(yr, mo, 1).strftime("%B %Y"),
+                "count": v["count"],
+                "duration_min": int(v["duration_sec"] / 60),
+                "distance_km": v["distance_m"] / 1000,
+                "planned_km": v["planned_km"],
+            })
+
+    return templates.TemplateResponse(
+        request,
+        "stats.html",
+        {
+            "user": user,
+            "athlete": athlete,
+            "period": period,
+            "period_label": period_label,
+            "year": target_year,
+            "today_year": today.year,
+            "planned_count": planned_count,
+            "planned_duration_min": planned_duration_min,
+            "planned_distance_km": planned_distance_km,
+            "done_count": done_count,
+            "done_duration_sec": done_duration_sec,
+            "done_distance_km": done_distance_m / 1000,
+            "done_avg_pace_sec_per_km": done_avg_pace_sec_per_km,
+            "validated_count": validated_count,
+            "monthly_breakdown": monthly_breakdown,
+        },
+    )
+
+
 @router.get("/sessions/{session_id}")
 async def session_detail(
     request: Request,
