@@ -199,6 +199,28 @@ async def stats(
                 "planned_km": v["planned_km"],
             })
 
+    # Evolution allure EF : un point par seance EF realisee
+    # Filtre sur les seances dont le nom contient "Endurance" (couvre EF + EF active).
+    ef_points: list[dict] = []
+    for s in sessions:
+        if not s.actual_duration_sec or not s.actual_distance_m:
+            continue
+        name_lower = (s.name or "").lower()
+        if "endurance" not in name_lower:
+            continue
+        km = s.actual_distance_m / 1000
+        if km <= 0:
+            continue
+        pace_sec = int(s.actual_duration_sec / km)
+        ef_points.append({
+            "date": s.date,
+            "date_iso": s.date.isoformat(),
+            "date_label": s.date.strftime("%d %b"),
+            "pace_sec": pace_sec,
+            "pace_label": f"{pace_sec // 60}:{pace_sec % 60:02d}",
+            "name": s.name,
+        })
+
     return templates.TemplateResponse(
         request,
         "stats.html",
@@ -218,6 +240,7 @@ async def stats(
             "done_avg_pace_sec_per_km": done_avg_pace_sec_per_km,
             "validated_count": validated_count,
             "monthly_breakdown": monthly_breakdown,
+            "ef_points": ef_points,
         },
     )
 
