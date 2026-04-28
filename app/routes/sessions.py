@@ -417,6 +417,39 @@ async def resync_garmin(
     )
 
 
+@router.post("/sessions/{session_id}/manual-actuals")
+async def manual_actuals(
+    session_id: int,
+    duration_min: float = Form(...),
+    distance_km: float = Form(...),
+    user: User = Depends(require_user),
+    db: DBSession = Depends(get_session),
+):
+    """Saisie manuelle de la duree et distance reelles (si pas de trace Garmin)."""
+    s = db.get(Session, session_id)
+    if s is None:
+        raise HTTPException(404)
+    if user.role == UserRole.athlete and s.athlete_id != user.id:
+        raise HTTPException(403)
+
+    if duration_min <= 0 or distance_km <= 0:
+        return RedirectResponse(
+            url=f"/sessions/{session_id}?error=invalid_actuals",
+            status_code=303,
+        )
+
+    s.actual_duration_sec = int(duration_min * 60)
+    s.actual_distance_m = float(distance_km * 1000)
+    # Garde garmin_activity_id a None pour signaler que c'est une saisie manuelle
+    s.garmin_activity_id = None
+    db.add(s)
+    db.commit()
+    return RedirectResponse(
+        url=f"/sessions/{session_id}?success=manual_actuals",
+        status_code=303,
+    )
+
+
 @router.post("/sessions/{session_id}/unvalidate")
 async def unvalidate(
     session_id: int,

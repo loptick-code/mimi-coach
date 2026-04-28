@@ -102,6 +102,15 @@
   <div class="font-semibold">✅ Réalisé Garmin mis à jour</div>
   <div class="text-xs mt-1 opacity-75">Durée, distance et allure réelles importées depuis Garmin Connect.</div>
 </div>
+{% elif qs.get('success') == 'manual_actuals' %}
+<div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm border border-emerald-100">
+  <div class="font-semibold">✅ Réalisé enregistré manuellement</div>
+  <div class="text-xs mt-1 opacity-75">Durée et distance saisies, allure moyenne calculée.</div>
+</div>
+{% elif qs.get('error') == 'invalid_actuals' %}
+<div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100">
+  ❌ Valeurs invalides : la durée et la distance doivent être supérieures à 0.
+</div>
 {% elif qs.get('error') == 'no_activity' %}
 <div class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-900 text-sm font-medium border border-amber-100">
   ⚠️ Aucune activité Garmin trouvée pour le {{ session.date.strftime("%d/%m/%Y") }}.
@@ -148,7 +157,9 @@
     {% set pace_min = (pace_total_sec // 60) | int %}
     {% set pace_sec = (pace_total_sec % 60) | int %}
     <div class="mt-4 pt-4 border-t border-stone-100">
-      <div class="text-xs uppercase tracking-wider text-emerald-600 font-semibold mb-2">Réalisé sur Garmin</div>
+      <div class="text-xs uppercase tracking-wider text-emerald-600 font-semibold mb-2">
+        {% if session.garmin_activity_id %}Réalisé sur Garmin{% else %}Réalisé (saisie manuelle){% endif %}
+      </div>
       <div class="grid grid-cols-3 gap-3">
         <div class="stat-block">
           <div class="stat-label">Durée</div>
@@ -244,6 +255,35 @@
         </form>
       </div>
     </div>
+
+    {# Saisie manuelle des actuals : disponible quand validee, comme fallback Garmin #}
+    <details class="mt-4 pt-4 border-t border-stone-100" {% if not session.actual_duration_sec %}open{% endif %}>
+      <summary class="cursor-pointer text-sm font-semibold text-stone-700 flex items-center gap-2">
+        <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        Saisie manuelle du réalisé
+        {% if session.actual_duration_sec and not session.garmin_activity_id %}
+          <span class="text-[10px] uppercase tracking-wider text-emerald-600 ml-1">enregistré</span>
+        {% endif %}
+      </summary>
+      <p class="text-xs text-stone-500 mt-2 mb-3">
+        À utiliser si tu n'avais pas ta montre ou si Garmin n'a rien trouvé.
+      </p>
+      <form method="post" action="/sessions/{{ session.id }}/manual-actuals" class="grid grid-cols-[1fr,1fr,auto] gap-2 items-end">
+        <div>
+          <label class="block text-[11px] text-stone-500 mb-1">Durée (min)</label>
+          <input type="number" name="duration_min" step="0.1" min="0.1" required
+                 value="{% if session.actual_duration_sec %}{{ '%.1f'|format(session.actual_duration_sec / 60) }}{% endif %}"
+                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400" />
+        </div>
+        <div>
+          <label class="block text-[11px] text-stone-500 mb-1">Distance (km)</label>
+          <input type="number" name="distance_km" step="0.01" min="0.01" required
+                 value="{% if session.actual_distance_m %}{{ '%.2f'|format(session.actual_distance_m / 1000) }}{% endif %}"
+                 class="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-emerald-400" />
+        </div>
+        <button type="submit" class="btn btn-secondary text-sm">Enregistrer</button>
+      </form>
+    </details>
   {% else %}
     <p class="text-sm text-stone-600 mb-3">Comment as-tu trouvé cette séance ?</p>
     <form method="post" action="/sessions/{{ session.id }}/feedback">
@@ -280,16 +320,10 @@
   {% endif %}
 </div>
 
-<!-- CTA bottom sticky : Modifier (secondaire) + Exporter (primaire) en avant -->
+<!-- CTA bottom sticky : Exporter (primaire) -->
 <div class="fixed bottom-0 left-0 right-0 z-20 border-t border-stone-200/60"
      style="background: rgba(250,250,249,0.95); backdrop-filter: blur(8px); padding: 0.75rem; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));">
   <div class="max-w-3xl mx-auto flex gap-2 items-center">
-    {% if can_edit %}
-      <a href="/admin/sessions/{{ session.id }}/edit" class="btn btn-secondary flex-1">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-        Modifier
-      </a>
-    {% endif %}
     <form method="post" action="/sessions/{{ session.id }}/export" class="flex-1" data-export-form>
       <button class="btn btn-primary w-full" data-export-btn>
         <span class="flex items-center gap-2" data-export-idle>

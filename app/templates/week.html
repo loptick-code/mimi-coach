@@ -127,16 +127,9 @@
       <div class="text-4xl mb-3">🏃</div>
       <h3 class="font-semibold text-stone-700">Aucune séance cette semaine</h3>
       <p class="text-sm text-stone-500 mt-1 max-w-xs mx-auto">
-        Crée la première séance pour démarrer le programme.
+        Pas de séance prévue cette semaine. Va dans l'onglet <a href="/admin" class="underline">Coach</a> pour en ajouter.
       </p>
-      <a href="/admin/sessions/new" class="btn btn-primary mt-5">+ Nouvelle séance</a>
     </div>
   {% endfor %}
 </div>
-
-{% if sessions %}
-<div class="mt-5 text-center">
-  <a href="/admin/sessions/new" class="btn btn-secondary text-sm">+ Ajouter une séance</a>
-</div>
-{% endif %}
 {% endblock %}
