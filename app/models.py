@@ -14,6 +14,7 @@ import datetime as _dt
 from enum import Enum
 from typing import List, Optional
 
+from sqlalchemy import BigInteger, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -117,7 +118,12 @@ class Session(SQLModel, table=True):
     pace_adjustment_at_validation: Optional[float] = Field(default=None)
 
     # Realise (recupere depuis Garmin a la validation)
-    garmin_activity_id: Optional[int] = Field(default=None, index=True)
+    # Note : Garmin activity IDs depassent souvent 2^31 (4 milliards+),
+    # il FAUT BigInteger sinon Postgres overflow sur INTEGER 32 bits.
+    garmin_activity_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column("garmin_activity_id", BigInteger, nullable=True, index=True),
+    )
     actual_duration_sec: Optional[int] = Field(default=None)
     actual_distance_m: Optional[float] = Field(default=None)
 
