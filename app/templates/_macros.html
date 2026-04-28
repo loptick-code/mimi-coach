@@ -42,7 +42,11 @@
       'perfect': ('🟡', 'Parfait', 'pill-amber'),
       'too_hard': ('🔴', 'Trop dur', 'pill-rose'),
     }[fb] %}
-    <span class="pill {{ spec[2] }}">{{ spec[0] }} {% if with_label %}{{ spec[1] }}{% else %}Validée{% endif %}</span>
+    {% if with_label %}
+      <span class="pill {{ spec[2] }}">{{ spec[0] }} {{ spec[1] }}</span>
+    {% else %}
+      <span class="pill pill-green">✓ Validée</span>
+    {% endif %}
   {% endif %}
 {% endmacro %}
 
