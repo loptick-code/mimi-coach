@@ -1,40 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline, lyric_tag %}
 {% block title %}{{ "Cette semaine" if is_current_week else monday.strftime("%d %b") + " - " + sunday.strftime("%d %b") }}{% endblock %}
 
 {% block content %}
-<!-- Navigation semaine -->
-<div class="flex items-center justify-between mb-5 gap-2">
-  <a href="/?week={{ prev_week }}" aria-label="Semaine précédente"
-     class="w-11 h-11 sm:w-9 sm:h-9 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-900 transition flex-shrink-0">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-  </a>
+{% set _months_fr = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'] %}
+{% set _days_fr = {0: 'LUN', 1: 'MAR', 2: 'MER', 3: 'JEU', 4: 'VEN', 5: 'SAM', 6: 'DIM'} %}
 
-  <div class="text-center">
-    {% if is_current_week %}
-      <h2 class="text-base font-semibold tracking-tight">Cette semaine</h2>
-    {% else %}
-      <h2 class="text-base font-semibold tracking-tight">{{ monday.strftime("%d %b") }} – {{ sunday.strftime("%d %b") }}</h2>
-      <a href="/" class="text-[11px] text-stone-500 hover:text-stone-900 underline underline-offset-2 decoration-stone-300 hover:decoration-stone-700 transition">
-        Revenir à la semaine en cours
-      </a>
-    {% endif %}
-  </div>
-
-  <a href="/?week={{ next_week }}" aria-label="Semaine suivante"
-     class="w-11 h-11 sm:w-9 sm:h-9 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-900 transition flex-shrink-0">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-  </a>
-</div>
-
-{% if athlete.pace_adjustment_pct %}
-  <div class="mb-4 flex items-center justify-center gap-2 text-xs text-stone-500">
-    {{ adjustment_pill(athlete.pace_adjustment_pct) }}
-    <span>basé sur tes derniers ressentis</span>
-  </div>
-{% endif %}
-
-{# Helper: format minutes en "Xh:MM" ou "X min" #}
 {% macro fmt_duration(mins) %}
   {%- if mins is none -%}0 min
   {%- elif mins >= 60 -%}{{ (mins // 60) | int }}h{{ '%02d'|format(mins | int % 60) }}
@@ -42,94 +13,151 @@
   {%- endif -%}
 {% endmacro %}
 
-<!-- Aperçu hebdomadaire avec progression -->
-<div class="card card-pad mb-4">
-  <h3 class="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-3">Aperçu hebdomadaire</h3>
-  <div class="grid grid-cols-3 gap-3">
-    <div>
-      <div class="text-2xl font-bold tracking-tight leading-none">
-        <span class="{% if done_count == total_count and total_count > 0 %}text-emerald-600{% endif %}">{{ done_count }}</span><span class="text-stone-300 font-normal">/{{ total_count }}</span>
-      </div>
-      <div class="text-xs text-stone-500 mt-1.5">Activités</div>
+<div class="px-4 sm:px-5 pt-4">
+  <!-- HERO header -->
+  <div style="margin-bottom: 18px;">
+    <div class="flex items-center" style="gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
+      <span class="pill pill-accent">Semaine {{ monday.isocalendar()[1] }}</span>
+      <span style="font-size: 11px; color: var(--ink-muted); font-weight: 600;">
+        {{ monday.day }} — {{ sunday.day }} {{ _months_fr[sunday.month] }} {{ sunday.year }}
+      </span>
+      {% if not is_current_week %}
+        <a href="/" class="text-[11px] underline" style="color: var(--ink-muted); text-decoration-color: rgba(14,14,14,0.2);">cette semaine</a>
+      {% endif %}
     </div>
-    <div>
-      <div class="text-2xl font-bold tracking-tight leading-none">
-        <span class="{% if done_duration >= total_duration and total_duration > 0 %}text-emerald-600{% endif %}">{{ fmt_duration(done_duration) }}</span>
-        <span class="text-stone-300 font-normal text-base">/ {{ fmt_duration(total_duration) }}</span>
+    <h1 class="display-xxl">
+      Ta semaine,<br/>
+      <span style="color: var(--accent);">{{ (athlete.name or 'Mimi').split(' ')[0] }}.</span>
+    </h1>
+    {% if athlete.pace_adjustment_pct %}
+      <div class="flex items-center" style="margin-top: 14px; gap: 8px; font-size: 12px; color: var(--ink-muted);">
+        {{ adjustment_pill(athlete.pace_adjustment_pct) }}
+        <span>basé sur tes derniers ressentis</span>
       </div>
-      <div class="text-xs text-stone-500 mt-1.5">Durée</div>
-    </div>
-    <div>
-      <div class="text-2xl font-bold tracking-tight leading-none">
-        <span class="{% if done_distance >= total_distance and total_distance > 0 %}text-emerald-600{% endif %}">{{ '%.1f'|format(done_distance) }}</span>
-        <span class="text-stone-300 font-normal text-base">/ {{ '%.1f'|format(total_distance) }}<span class="text-xs">km</span></span>
-      </div>
-      <div class="text-xs text-stone-500 mt-1.5">Distance</div>
-    </div>
+    {% endif %}
   </div>
-  {% if total_count > 0 %}
-    <div class="mt-3 h-1.5 rounded-full bg-stone-100 overflow-hidden">
-      {% set pct = (done_count / total_count * 100) | round %}
-      <div class="h-full bg-emerald-500 transition-all" style="width: {{ pct }}%"></div>
-    </div>
-  {% endif %}
-</div>
 
-<!-- Liste des séances -->
-<div class="space-y-2">
-  {% for s in sessions %}
-    <a href="/sessions/{{ s.id }}" class="block bg-white rounded-2xl border border-stone-100 hover:border-stone-200 hover:shadow-sm transition group">
-      <div class="flex items-center gap-3 p-4">
-        {{ session_icon(s) }}
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 text-[11px] text-stone-500 mb-0.5 flex-wrap">
-            <span class="font-semibold text-stone-700">Séance {{ loop.index }}</span>
-            <span>·</span>
-            <span>{{ s.date.strftime("%a %d %b") }}</span>
-            {% if loop.index in [2, 4] %}
-              <span>·</span>
-              <span class="text-amber-600 font-medium">à ne pas manquer</span>
-            {% endif %}
-            {% if s.feedback %}
-              <span>·</span>
-              {{ feedback_pill(s.feedback, with_label=False) }}
-            {% endif %}
+  <!-- Navigation entre semaines -->
+  <div class="flex items-center justify-between" style="margin-bottom: 14px;">
+    <a href="/?week={{ prev_week }}" aria-label="Semaine precedente" class="btn btn-ghost btn-icon" style="height: 36px; width: 36px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <span class="font-display" style="font-size: 14px; font-weight: 700; letter-spacing: -0.02em;">
+      {% if is_current_week %}Cette semaine{% else %}{{ monday.strftime('%d') }}–{{ sunday.strftime('%d %b') }}{% endif %}
+    </span>
+    <a href="/?week={{ next_week }}" aria-label="Semaine suivante" class="btn btn-ghost btn-icon" style="height: 36px; width: 36px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+
+  <!-- Apercu hebdo : card sombre avec gros chiffres + barre lavender -->
+  <div class="card-dark" style="padding: var(--card-pad); margin-bottom: 14px; position: relative; overflow: hidden;">
+    <div class="flex justify-between items-end" style="margin-bottom: 16px;">
+      <span class="micro-label" style="color: var(--ink-muted);">Aperçu hebdo</span>
+      {% set pct_val = (done_count / total_count * 100) | round | int if total_count > 0 else 0 %}
+      <span class="font-display" style="font-size: 13px; font-weight: 700; color: var(--accent);">
+        {{ pct_val }}%
+      </span>
+    </div>
+    <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 16px;">
+      <div>
+        <div class="micro-label" style="margin-bottom: 4px; color: var(--ink-muted);">Activités</div>
+        <div class="stat-value stat-value-lg" style="color: var(--cream);">
+          {{ done_count }}<span style="font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-left: 2px;">/ {{ total_count }}</span>
+        </div>
+      </div>
+      <div>
+        <div class="micro-label" style="margin-bottom: 4px; color: var(--ink-muted);">Durée</div>
+        <div class="stat-value stat-value-lg" style="color: var(--cream);">{{ fmt_duration(done_duration) }}</div>
+        <div class="font-display" style="font-size: 11px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-muted); margin-top: 4px;">/ {{ fmt_duration(total_duration) }}</div>
+      </div>
+      <div>
+        <div class="micro-label" style="margin-bottom: 4px; color: var(--ink-muted);">Distance</div>
+        <div class="stat-value stat-value-lg" style="color: var(--cream);">
+          {{ '%.1f'|format(done_distance) }}<span style="font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-left: 2px;">km</span>
+        </div>
+        <div class="font-display" style="font-size: 11px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-muted); margin-top: 4px;">/ {{ '%.1f'|format(total_distance) }}</div>
+      </div>
+    </div>
+    {% if total_count > 0 %}
+      <div style="margin-top: 16px; height: 4px; border-radius: 999px; background: rgba(245,241,234,0.1); overflow: hidden;">
+        <div style="width: {{ pct_val }}%; height: 100%; background: var(--accent); transition: width 400ms;"></div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Liste des seances -->
+  <div class="flex flex-col" style="gap: 10px;">
+    {% for s in sessions %}
+      <a href="/sessions/{{ s.id }}"
+         class="flex items-center group"
+         style="background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 14px; gap: 14px; transition: border-color 120ms; text-decoration: none; color: inherit;"
+         onmouseover="this.style.borderColor='var(--ink)';" onmouseout="this.style.borderColor='var(--line)';">
+
+        <!-- Day badge a gauche : noir si done, gris sinon -->
+        <div class="flex-shrink-0 text-center"
+             style="width: 54px; padding: 8px 4px; border-radius: 12px;
+                    background: {% if s.feedback %}var(--ink){% else %}rgba(14,14,14,0.04){% endif %};
+                    color: {% if s.feedback %}var(--cream){% else %}var(--ink){% endif %};">
+          <div style="font-size: 9px; font-weight: 700; letter-spacing: 0.12em; opacity: 0.7;">
+            {{ _days_fr[s.date.weekday()] }}
           </div>
-          <div class="font-semibold text-stone-900 leading-tight truncate">{{ s.name }}</div>
-          <div class="flex items-center gap-2 mt-1.5 text-xs text-stone-500">
-            <span class="font-medium text-stone-700">{{ s.estimated_duration_min or 0 }} min</span>
+          <div class="font-display" style="font-size: 22px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-top: 2px;">
+            {{ s.date.day }}
+          </div>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center" style="gap: 6px; margin-bottom: 4px; flex-wrap: wrap;">
+            <span class="micro-label">Séance {{ loop.index }}</span>
+            {% if loop.index in [2, 4] %}<span class="pill pill-accent">à ne pas manquer</span>{% endif %}
+            {% if s.feedback %}{{ feedback_pill(s.feedback, with_label=False) }}{% endif %}
+            {% if s.pushed_at and not s.feedback %}<span class="pill pill-ink-soft">exportée</span>{% endif %}
+          </div>
+          <div class="display-s" style="margin-bottom: 8px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            {{ s.name }}
+          </div>
+
+          {% if s.steps %}
+            <div style="margin-bottom: 8px;">{{ session_timeline(s, height=5) }}</div>
+          {% endif %}
+
+          <div class="flex items-center" style="gap: 10px; font-size: 12px; color: var(--ink-muted);">
+            <span style="font-weight: 700; color: var(--ink);">{{ s.estimated_duration_min or 0 }}'</span>
             <span>·</span>
-            <span>{{ '%.1f'|format(s.estimated_distance_km or 0) }} km</span>
+            <span style="font-weight: 700; color: var(--ink);">{{ '%.1f'|format(s.estimated_distance_km or 0) }} km</span>
             <span>·</span>
             {{ difficulty_bolts(s.difficulty, size='sm') }}
           </div>
+
           {% if s.actual_duration_sec and s.actual_distance_m %}
             {% set act_min = (s.actual_duration_sec / 60) | round(0) | int %}
             {% set act_km = s.actual_distance_m / 1000 %}
             {% set pace_total_sec = (s.actual_duration_sec / act_km) | round(0) | int if act_km > 0 else 0 %}
             {% set pace_min = (pace_total_sec // 60) | int %}
             {% set pace_sec = (pace_total_sec % 60) | int %}
-            <div class="flex items-center gap-2 mt-1 text-[11px] text-emerald-700">
-              <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-              <span class="font-semibold">{{ act_min }} min</span>
-              <span class="opacity-60">·</span>
-              <span class="font-semibold">{{ '%.2f'|format(act_km) }} km</span>
-              <span class="opacity-60">·</span>
-              <span class="font-semibold">{{ pace_min }}:{{ '%02d'|format(pace_sec) }}/km</span>
+            <div class="flex items-center" style="gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 11px; color: var(--accent-deep);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+              <span style="font-weight: 700;">{{ act_min }} min · {{ '%.2f'|format(act_km) }} km · {{ pace_min }}:{{ '%02d'|format(pace_sec) }}/km</span>
             </div>
           {% endif %}
         </div>
-        <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" style="color: rgba(14,14,14,0.3);"><path d="M9 5l7 7-7 7"/></svg>
+      </a>
+    {% else %}
+      <div class="card card-pad text-center" style="padding: 48px 24px;">
+        <div class="display-m" style="margin-bottom: 8px;">Pas de séance</div>
+        <p style="font-size: 13px; color: var(--ink-muted); max-width: 280px; margin: 0 auto;">
+          Aucune séance prévue cette semaine. Profite de te reposer.
+        </p>
+        {% if user.role.value == 'coach' or user.role == 'coach' %}
+          <a href="/admin/sessions/new" class="btn btn-primary" style="margin-top: 18px;">+ Nouvelle séance</a>
+        {% endif %}
       </div>
-    </a>
-  {% else %}
-    <div class="card card-pad text-center py-12">
-      <div class="text-4xl mb-3">🏃</div>
-      <h3 class="font-semibold text-stone-700">Aucune séance cette semaine</h3>
-      <p class="text-sm text-stone-500 mt-1 max-w-xs mx-auto">
-        Pas de séance prévue cette semaine. Va dans l'onglet <a href="/admin" class="underline">Coach</a> pour en ajouter.
-      </p>
-    </div>
-  {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div style="text-align: center; margin-top: 24px;">{{ lyric_tag() }}</div>
 </div>
 {% endblock %}

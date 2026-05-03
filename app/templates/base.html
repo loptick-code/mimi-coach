@@ -1,37 +1,34 @@
 <!doctype html>
-<html lang="fr" class="bg-stone-50">
+<html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#fafaf9" />
+    <meta name="theme-color" content="#F5F1EA" />
     <title>{% block title %}Mimi Coach{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@10..48,400;10..48,500;10..48,600;10..48,700;10..48,800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
-      // Custom Tailwind config (chargé avant utilisation des classes)
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
               sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-              display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+              display: ['Bricolage Grotesque', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
             },
             colors: {
-              brand: {
-                50: '#f5f5f4',
-                100: '#e7e5e4',
-                500: '#78716c',
-                900: '#1c1917',
-              },
+              ink: { DEFAULT: '#0E0E0E', soft: '#1F1F1F', muted: '#6B6760' },
+              cream: { DEFAULT: '#F5F1EA', soft: '#EFEAE0' },
+              paper: '#FAFAF7',
+              accent: { DEFAULT: '#D699FF', deep: '#A862E0', soft: '#EFD9FF' },
               zone: {
-                warmup: '#facc15',
-                interval: '#f43f5e',
-                recovery: '#7dd3fc',
-                cooldown: '#f9a8d4',
-                other: '#a8a29e',
+                warmup: '#FFD23F',
+                interval: '#D699FF',
+                recovery: '#7DD3FC',
+                cooldown: '#F9A8D4',
+                other: '#9CFF6E',
               }
             },
           },
@@ -39,168 +36,211 @@
       };
     </script>
     <style>
+      :root {
+        --ink: #0E0E0E;
+        --ink-soft: #1F1F1F;
+        --ink-muted: #6B6760;
+        --cream: #F5F1EA;
+        --cream-soft: #EFEAE0;
+        --paper: #FAFAF7;
+        --white: #FFFFFF;
+        --accent: #D699FF;
+        --accent-deep: #A862E0;
+        --accent-soft: #EFD9FF;
+        --zone-warmup: #FFD23F;
+        --zone-interval: #D699FF;
+        --zone-recovery: #7DD3FC;
+        --zone-cooldown: #F9A8D4;
+        --zone-other: #9CFF6E;
+        --success: #22C55E;
+        --warning: #F59E0B;
+        --danger: #EF4444;
+        --line: rgba(14,14,14,0.08);
+        --line-strong: rgba(14,14,14,0.18);
+        --line-dark: rgba(245,241,234,0.12);
+        --radius-card: 18px;
+        --card-pad: 18px;
+      }
+
+      html { background: var(--cream); }
       body {
         font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: var(--cream);
+        color: var(--ink);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
-      .icon-bolt { width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em; }
+      .font-display { font-family: 'Bricolage Grotesque', 'Inter', ui-sans-serif, system-ui, sans-serif; }
 
-      /* Cards */
-      .card { background: #fff; border-radius: 1rem; border: 1px solid #f5f5f4; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-      .card-pad { padding: 1rem; }
-      @media (min-width: 640px) { .card-pad { padding: 1.25rem; } }
+      /* === Cards === */
+      .card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-card); }
+      .card-pad { padding: var(--card-pad); }
+      .card-dark { background: var(--ink); color: var(--cream); border: 1px solid rgba(245,241,234,0.08); border-radius: var(--radius-card); }
+      .card-accent { background: var(--accent); color: var(--ink); border: none; border-radius: var(--radius-card); }
+      .card-success { background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.35); border-radius: var(--radius-card); }
 
-      /* Pills */
-      .pill { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-      .pill-green { background: #d1fae5; color: #065f46; }
-      .pill-amber { background: #fef3c7; color: #92400e; }
-      .pill-rose { background: #ffe4e6; color: #9f1239; }
-      .pill-sky { background: #e0f2fe; color: #075985; }
-      .pill-stone { background: #f5f5f4; color: #44403c; }
+      /* === Pills === */
+      .pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px;
+              font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+      .pill-stone { background: rgba(14,14,14,0.06); color: var(--ink); }
+      .pill-ink { background: var(--ink); color: var(--cream); }
+      .pill-ink-soft { background: rgba(14,14,14,0.08); color: var(--ink); }
+      .pill-accent { background: var(--accent); color: var(--ink); }
+      .pill-accent-soft { background: rgba(214,153,255,0.18); color: var(--accent-deep); }
+      .pill-green { background: rgba(34,197,94,0.15); color: #15803d; }
+      .pill-amber { background: rgba(245,158,11,0.18); color: #92400e; }
+      .pill-rose { background: rgba(214,153,255,0.18); color: var(--accent-deep); }
+      .pill-sky { background: rgba(125,211,252,0.25); color: #0369a1; }
+      .pill-danger { background: rgba(239,68,68,0.15); color: #b91c1c; }
 
-      /* Buttons */
-      .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.625rem 1.25rem; border-radius: 9999px; font-size: 14px; font-weight: 600; transition: all 150ms ease; cursor: pointer; border: 1px solid transparent; line-height: 1; }
-      .btn:active { transform: scale(0.96); }
+      /* === Buttons === */
+      .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+             padding: 11px 18px; height: 42px; border-radius: 999px; font-weight: 700; font-size: 13.5px;
+             letter-spacing: 0.01em; line-height: 1; cursor: pointer; border: 1.5px solid transparent;
+             transition: transform 120ms ease, opacity 120ms ease, background 120ms ease; }
+      .btn:active { transform: scale(0.97); }
       .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-      .btn-primary { background: #1c1917; color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-      .btn-primary:hover { background: #44403c; }
-      .btn-secondary { background: white; border-color: #e7e5e4; color: #292524; }
-      .btn-secondary:hover { background: #fafaf9; border-color: #d6d3d1; }
-      .btn-ghost { background: transparent; color: #44403c; }
-      .btn-ghost:hover { background: #f5f5f4; }
-      .btn-danger { background: #e11d48; color: white; }
-      .btn-danger:hover { background: #f43f5e; }
-      .btn-icon { padding: 0; width: 2.5rem; height: 2.5rem; border-radius: 9999px; }
+      .btn-sm { padding: 8px 14px; height: 34px; font-size: 12px; }
+      .btn-lg { padding: 14px 22px; height: 50px; font-size: 15px; }
+      .btn-primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+      .btn-primary:hover { background: var(--ink-soft); }
+      .btn-accent { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+      .btn-accent:hover { background: var(--accent-deep); color: var(--cream); border-color: var(--accent-deep); }
+      .btn-cream { background: var(--cream); color: var(--ink); border-color: var(--cream); }
+      .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+      .btn-ghost:hover { background: rgba(14,14,14,0.04); border-color: var(--ink); }
+      .btn-ghost-ink { background: transparent; color: var(--cream); border-color: rgba(245,241,234,0.2); }
+      .btn-ghost-ink:hover { background: rgba(245,241,234,0.08); }
+      .btn-danger { background: transparent; color: var(--danger); border-color: rgba(239,68,68,0.3); }
+      .btn-danger:hover { background: rgba(239,68,68,0.08); }
+      .btn-icon { padding: 0; width: 36px; height: 36px; border-radius: 999px; }
 
-      /* Stats */
-      .stat-label { color: #78716c; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+      /* === Inputs === */
+      .input { display: block; width: 100%; padding: 14px 16px; background: var(--white);
+               border: 1.5px solid var(--line); border-radius: 14px; color: var(--ink);
+               font-family: inherit; font-size: 14px; transition: border-color 150ms; box-sizing: border-box; }
+      .input:focus { outline: none; border-color: var(--ink); }
+      .input-sm { padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+      .input-dark { background: rgba(245,241,234,0.06); border: 1.5px solid rgba(245,241,234,0.12); color: var(--cream); border-radius: 14px; padding: 14px 16px; width: 100%; font-family: inherit; font-size: 15px; box-sizing: border-box; }
+      .input-dark:focus { outline: none; border-color: var(--accent); }
+      .input-dark::placeholder { color: rgba(245,241,234,0.4); }
 
-      /* Nav */
-      .nav-link { font-size: 14px; font-weight: 500; color: #57534e; transition: color 150ms; }
-      .nav-link:hover { color: #1c1917; }
-      .nav-link-active { color: #1c1917; }
+      /* === Labels === */
+      .field-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+                     text-transform: uppercase; color: var(--ink-muted); margin-bottom: 6px; }
+      .field-label-dark { color: rgba(245,241,234,0.5); }
+      .micro-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); }
 
-      /* Inputs */
-      .input, input.input, select.input, textarea.input {
-        display: block;
-        width: 100%;
-        padding: 0.625rem 0.875rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e7e5e4;
-        background: white;
-        color: #1c1917;
-        font-size: 14px;
-        font-family: inherit;
-        transition: border-color 150ms, box-shadow 150ms;
-      }
-      .input:focus, input.input:focus, select.input:focus, textarea.input:focus {
-        outline: none;
-        border-color: #1c1917;
-        box-shadow: 0 0 0 3px rgba(28, 25, 23, 0.1);
-      }
-      .input-sm, input.input-sm, select.input-sm, textarea.input-sm {
-        display: block;
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        border-radius: 0.5rem;
-        border: 1px solid #e7e5e4;
-        background: white;
-        color: #1c1917;
-        font-size: 14px;
-        font-family: inherit;
-      }
-      .input-sm:focus, input.input-sm:focus, select.input-sm:focus, textarea.input-sm:focus {
-        outline: none;
-        border-color: #1c1917;
-        box-shadow: 0 0 0 2px rgba(28, 25, 23, 0.08);
-      }
+      /* === Display headings === */
+      .display-xxl { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(38px, 9vw, 56px); line-height: 0.88; letter-spacing: -0.045em; text-transform: uppercase; margin: 0; }
+      .display-xl { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(36px, 8vw, 48px); line-height: 0.9; letter-spacing: -0.045em; text-transform: uppercase; margin: 0; }
+      .display-l { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 32px; line-height: 0.95; letter-spacing: -0.04em; }
+      .display-m { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 22px; line-height: 1.1; letter-spacing: -0.035em; text-transform: uppercase; }
+      .display-s { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: -0.025em; }
 
-      /* Field labels */
-      .field-label {
-        display: block;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        font-weight: 600;
-        color: #78716c;
-        margin-bottom: 0.375rem;
-      }
+      /* === Stat blocks === */
+      .stat-value { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; line-height: 0.95; letter-spacing: -0.04em; }
+      .stat-value-xxl { font-size: clamp(72px, 18vw, 110px); line-height: 0.85; letter-spacing: -0.05em; }
+      .stat-value-xl { font-size: 44px; }
+      .stat-value-lg { font-size: 30px; }
+      .stat-unit { font-size: 0.4em; font-weight: 700; color: var(--ink-muted); margin-left: 4px; letter-spacing: 0; }
+
+      /* === Section title === */
+      .section-title { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 22px;
+                       letter-spacing: -0.035em; text-transform: uppercase; margin: 0; line-height: 1; }
+
+      /* === Header tabs === */
+      .nav-tabs { display: flex; align-items: center; gap: 4px; background: rgba(14,14,14,0.05); border-radius: 999px; padding: 3px; }
+      .nav-tab { padding: 6px 14px; border-radius: 999px; border: 0; font-weight: 700; font-size: 12px;
+                 letter-spacing: 0.02em; background: transparent; color: var(--ink-muted); cursor: pointer; transition: background 120ms; text-decoration: none; display: inline-block; line-height: 1.4; }
+      .nav-tab-active { background: var(--ink); color: var(--cream); }
+      .nav-tab:hover:not(.nav-tab-active) { color: var(--ink); }
+
+      /* === Avatar (initiales) === */
+      .avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--accent-soft);
+                color: var(--accent-deep); display: inline-flex; align-items: center; justify-content: center;
+                font-weight: 800; font-size: 12px; font-family: 'Bricolage Grotesque', sans-serif; letter-spacing: -0.02em; }
+
+      /* === Lyric tag (footer + flairs) === */
+      .lyric-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+                   background: rgba(214,153,255,0.14); color: var(--accent-deep); font-size: 11px; font-style: italic; font-weight: 500; }
+      .lyric-tag-inline { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-deep); font-size: 11px; font-style: italic; font-weight: 500; }
+
+      /* === Animations === */
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .animate-spin { animation: spin 0.8s linear infinite; }
+      @keyframes modalIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+      /* === Misc === */
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
     {% block extra_head %}{% endblock %}
   </head>
-  <body class="min-h-screen text-stone-900 antialiased">
+  <body class="min-h-screen">
     {% if user %}
-    <header class="sticky top-0 z-30 backdrop-blur bg-stone-50/85 border-b border-stone-200/80">
-      <div class="max-w-3xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
-        <a href="/" class="flex items-center gap-2 font-extrabold text-base sm:text-lg tracking-tight flex-shrink-0">
-          <svg viewBox="0 0 24 24" class="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" fill="currentColor"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
-          <span class="hidden sm:inline">Mimi Coach</span>
-        </a>
-        <nav class="flex items-center gap-0.5 sm:gap-1">
-          <a href="/" class="nav-link px-2 sm:px-3 py-1.5 rounded-full {% if request.url.path in ['/', ''] %}nav-link-active bg-stone-100{% endif %}">Séances</a>
-          <a href="/admin" class="nav-link px-2 sm:px-3 py-1.5 rounded-full {% if request.url.path.startswith('/admin') %}nav-link-active bg-stone-100{% endif %}">Coach</a>
-          {# Menu Compte (Garmin + Déconnexion) #}
-          <div class="relative" data-account-menu>
-            <button type="button" data-account-toggle aria-expanded="false"
-                    class="nav-link px-2 sm:px-3 py-1.5 rounded-full inline-flex items-center gap-1 {% if request.url.path.startswith('/settings') %}nav-link-active bg-stone-100{% endif %}">
-              Compte
-              <svg class="w-3 h-3 transition-transform" style="margin-top: 1px;" data-account-chevron fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-            <div data-account-dropdown
-                 class="absolute right-0 top-full mt-2 w-44 bg-white border border-stone-200 rounded-xl shadow-lg py-1 hidden z-40"
-                 role="menu">
-              <a href="/settings/garmin" class="flex items-center gap-2 px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 transition" role="menuitem">
-                <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Garmin Connect
-              </a>
-              <div class="border-t border-stone-100 my-1"></div>
-              <form action="/logout" method="post">
-                <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 transition" role="menuitem">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                  Se déconnecter
-                </button>
-              </form>
-            </div>
-          </div>
+    {% from "_macros.html" import app_logo %}
+    <header class="sticky top-0 z-30" style="background: rgba(245,241,234,0.85); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line);">
+      <div class="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+        <a href="/" class="flex items-center" style="color: var(--ink);">{{ app_logo(size=22, with_text=True) }}</a>
+
+        <nav class="nav-tabs">
+          <a href="/" class="nav-tab {% if request.url.path in ['/', ''] %}nav-tab-active{% endif %}">Séances</a>
+          <a href="/stats" class="nav-tab {% if request.url.path.startswith('/stats') %}nav-tab-active{% endif %}">Stats</a>
+          {% if user.role.value == 'coach' or user.role == 'coach' %}
+          <a href="/admin" class="nav-tab {% if request.url.path.startswith('/admin') %}nav-tab-active{% endif %}">Coach</a>
+          {% endif %}
         </nav>
+
+        <div class="relative" data-account-menu>
+          <button type="button" data-account-toggle aria-expanded="false" aria-label="Mon compte"
+                  class="avatar" style="cursor: pointer; border: none; padding: 0;">
+            {{ (user.name or 'M')[:1] | upper }}
+          </button>
+          <div data-account-dropdown class="absolute right-0 top-full mt-2 w-48 hidden z-40"
+               style="background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 10px 30px rgba(14,14,14,0.08);"
+               role="menu">
+            <div class="px-3 py-2" style="border-bottom: 1px solid var(--line);">
+              <div class="text-xs font-semibold" style="color: var(--ink);">{{ user.name }}</div>
+              <div class="text-[10px]" style="color: var(--ink-muted);">{{ user.email }}</div>
+            </div>
+            <a href="/settings/garmin" class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg" style="color: var(--ink);" role="menuitem">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 9v3l2 2M9 2h6M9 22h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Garmin Connect
+            </a>
+            <form action="/logout" method="post">
+              <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg text-left"
+                      style="color: var(--danger); cursor: pointer; background: none; border: none;" role="menuitem">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Se déconnecter
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </header>
     <script>
-      // Toggle du menu Compte
       (function () {
         const menu = document.querySelector('[data-account-menu]');
         if (!menu) return;
         const toggle = menu.querySelector('[data-account-toggle]');
         const dropdown = menu.querySelector('[data-account-dropdown]');
-        const chevron = menu.querySelector('[data-account-chevron]');
-        const close = () => {
-          dropdown.classList.add('hidden');
-          toggle.setAttribute('aria-expanded', 'false');
-          chevron.style.transform = '';
-        };
+        const close = () => { dropdown.classList.add('hidden'); toggle.setAttribute('aria-expanded', 'false'); };
         toggle.addEventListener('click', (e) => {
           e.stopPropagation();
-          const open = dropdown.classList.toggle('hidden');
-          toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
-          chevron.style.transform = open ? '' : 'rotate(180deg)';
+          const isOpen = !dropdown.classList.toggle('hidden');
+          toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         });
-        document.addEventListener('click', (e) => {
-          if (!menu.contains(e.target)) close();
-        });
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') close();
-        });
+        document.addEventListener('click', (e) => { if (!menu.contains(e.target)) close(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
       })();
     </script>
     {% endif %}
 
-    <main class="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6"
-          style="padding-bottom: calc(6rem + env(safe-area-inset-bottom));">
+    <main class="max-w-3xl mx-auto" style="padding-bottom: calc(6rem + env(safe-area-inset-bottom));">
       {% block content %}{% endblock %}
     </main>
 
-    {# Footer : lyric aleatoire du Son de Mimi a chaque pageload #}
     {% set _lyrics = [
       "Elle m'dit que j'suis mimi",
       "Moi, j't'aime à l'infini",
@@ -213,8 +253,13 @@
       "Nous deux ensemble, jusqu'à c'qu'on finisse là-haut",
       "Faut qu'on passe des soirées sans penser",
     ] %}
+    {% block footer %}
     <footer class="max-w-3xl mx-auto px-4 pb-8 pt-2 text-center select-none">
-      <p class="text-[11px] text-stone-400 italic">« {{ _lyrics | random }} » 🎵</p>
+      <span class="lyric-tag">
+        <span style="font-size: 9px;">♫</span>
+        <span>« {{ _lyrics | random }} »</span>
+      </span>
     </footer>
+    {% endblock %}
   </body>
 </html>

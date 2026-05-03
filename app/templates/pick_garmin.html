@@ -2,95 +2,100 @@
 {% block title %}Choisir l'activité Garmin{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <a href="/sessions/{{ session.id }}#validation" class="text-sm text-stone-500 hover:text-stone-900 inline-flex items-center gap-1">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+<div class="px-4 sm:px-5 pt-4">
+  <a href="/sessions/{{ session.id }}#validation"
+     class="btn btn-ghost btn-sm" style="margin-bottom: 14px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
     Retour à la séance
   </a>
-</div>
 
-<div class="mb-5">
-  <div class="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-1">{{ session.date.strftime("%A %d %B %Y") }}</div>
-  <h2 class="text-xl font-bold tracking-tight">{{ session.name }}</h2>
-  <p class="text-sm text-stone-500 mt-1">Choisis l'activité Garmin qui correspond à cette séance.</p>
-</div>
-
-{% if error %}
-  <div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100">
-    ❌ Erreur Garmin : {{ error }}
+  <div style="margin-bottom: 18px;">
+    <span class="micro-label">{{ session.date.strftime("%A %d %B %Y") }}</span>
+    <h1 class="display-l" style="margin-top: 4px;">{{ session.name }}</h1>
+    <p style="font-size: 13px; color: var(--ink-muted); margin-top: 8px;">Choisis l'activité Garmin qui correspond.</p>
   </div>
-{% endif %}
 
-{% if not activities and not error %}
-  <div class="card card-pad text-center py-12">
-    <div class="text-4xl mb-3">🏃</div>
-    <h3 class="font-semibold text-stone-700">Aucune course trouvée</h3>
-    <p class="text-sm text-stone-500 mt-1 max-w-xs mx-auto">
-      Garmin n'a renvoyé aucune activité de course récente pour ce compte.
-    </p>
-    <a href="/sessions/{{ session.id }}#validation" class="btn btn-secondary mt-5">Retour</a>
-  </div>
-{% endif %}
+  {% if error %}
+    <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #b91c1c; font-size: 13px;">
+      Erreur Garmin : {{ error }}
+    </div>
+  {% endif %}
 
-{% if activities %}
-  <div class="space-y-2">
-    {% for a in activities %}
-      {% set act_min = (a.duration_sec / 60) | round(0) | int %}
-      {% set act_km = a.distance_m / 1000 %}
-      {% set pace_total_sec = (a.duration_sec / act_km) | round(0) | int if act_km > 0 else 0 %}
-      {% set pace_min = (pace_total_sec // 60) | int %}
-      {% set pace_sec = (pace_total_sec % 60) | int %}
-      {% set is_session_date = a.start_time and a.start_time.date() == session.date %}
-      {% set is_already_assigned = session.garmin_activity_id == a.activity_id %}
-      <form method="post" action="/sessions/{{ session.id }}/pick-garmin">
-        <input type="hidden" name="activity_id" value="{{ a.activity_id }}" />
-        <input type="hidden" name="duration_sec" value="{{ a.duration_sec }}" />
-        <input type="hidden" name="distance_m" value="{{ a.distance_m }}" />
-        <button type="submit"
-                class="w-full text-left bg-white rounded-2xl border {% if is_already_assigned %}border-emerald-300 ring-2 ring-emerald-100{% elif is_session_date %}border-amber-200 bg-amber-50/30{% else %}border-stone-100{% endif %} hover:border-stone-300 hover:shadow-sm transition group p-4 active:scale-[0.99]">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 text-[11px] text-stone-500 mb-0.5 flex-wrap">
+  {% if not activities and not error %}
+    <div class="card card-pad text-center" style="padding: 48px 24px;">
+      <div class="display-m" style="margin-bottom: 8px;">Aucune course trouvée</div>
+      <p style="font-size: 13px; color: var(--ink-muted); max-width: 280px; margin: 0 auto;">
+        Garmin n'a renvoyé aucune activité de course récente pour ce compte.
+      </p>
+      <a href="/sessions/{{ session.id }}#validation" class="btn btn-ghost" style="margin-top: 18px;">Retour</a>
+    </div>
+  {% endif %}
+
+  {% if activities %}
+    <div class="flex flex-col" style="gap: 10px;">
+      {% for a in activities %}
+        {% set act_min = (a.duration_sec / 60) | round(0) | int %}
+        {% set act_km = a.distance_m / 1000 %}
+        {% set pace_total_sec = (a.duration_sec / act_km) | round(0) | int if act_km > 0 else 0 %}
+        {% set pace_min = (pace_total_sec // 60) | int %}
+        {% set pace_sec = (pace_total_sec % 60) | int %}
+        {% set is_session_date = a.start_time and a.start_time.date() == session.date %}
+        {% set is_already_assigned = session.garmin_activity_id == a.activity_id %}
+        <form method="post" action="/sessions/{{ session.id }}/pick-garmin">
+          <input type="hidden" name="activity_id" value="{{ a.activity_id }}" />
+          <input type="hidden" name="duration_sec" value="{{ a.duration_sec }}" />
+          <input type="hidden" name="distance_m" value="{{ a.distance_m }}" />
+          <button type="submit"
+                  class="garmin-pick text-left"
+                  style="width: 100%; background: var(--paper);
+                         border: 1.5px solid {% if is_already_assigned %}var(--success){% elif is_session_date %}var(--accent){% else %}var(--line){% endif %};
+                         {% if is_session_date and not is_already_assigned %}background: rgba(214,153,255,0.06);{% endif %}
+                         {% if is_already_assigned %}background: rgba(34,197,94,0.06);{% endif %}
+                         border-radius: 18px; padding: 14px; cursor: pointer; transition: all 120ms;">
+            <div class="flex items-center" style="gap: 12px;">
+              <div class="flex flex-col items-center justify-center flex-shrink-0"
+                   style="width: 48px; padding: 6px 4px; border-radius: 12px; background: {% if is_session_date or is_already_assigned %}var(--ink){% else %}rgba(14,14,14,0.04){% endif %}; color: {% if is_session_date or is_already_assigned %}var(--cream){% else %}var(--ink){% endif %};">
                 {% if a.start_time %}
-                  <span>{{ a.start_time.strftime("%a %d %b %Y") }}</span>
-                  <span>·</span>
-                  <span>{{ a.start_time.strftime("%H:%M") }}</span>
+                  <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.12em; opacity: 0.7;">{{ a.start_time.strftime('%a') | upper }}</span>
+                  <span class="font-display" style="font-size: 18px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-top: 2px;">{{ a.start_time.day }}</span>
                 {% else %}
-                  <span>Date inconnue</span>
+                  <span style="font-size: 9px;">?</span>
                 {% endif %}
-                {% if is_session_date %}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center" style="gap: 6px; margin-bottom: 4px; flex-wrap: wrap;">
+                  {% if a.start_time %}
+                    <span style="font-size: 11px; color: var(--ink-muted);">{{ a.start_time.strftime("%H:%M") }}</span>
+                  {% endif %}
+                  {% if is_session_date %}<span class="pill pill-accent">jour de la séance</span>{% endif %}
+                  {% if is_already_assigned %}<span class="pill pill-green">✓ assignée</span>{% endif %}
+                </div>
+                <div class="font-display" style="font-weight: 700; font-size: 14px; letter-spacing: -0.02em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {{ a.name or a.activity_type | replace('_', ' ') | title }}
+                </div>
+                <div class="flex items-center" style="gap: 8px; margin-top: 6px; font-size: 12px; color: var(--ink-muted);">
+                  <span style="font-weight: 700; color: var(--ink);">{{ act_min }} min</span>
                   <span>·</span>
-                  <span class="text-amber-700 font-medium">jour de la séance</span>
-                {% endif %}
-                {% if is_already_assigned %}
+                  <span style="font-weight: 700; color: var(--ink);">{{ '%.2f'|format(act_km) }} km</span>
                   <span>·</span>
-                  <span class="text-emerald-700 font-medium">✓ déjà assignée</span>
-                {% endif %}
+                  <span style="font-weight: 700; color: var(--accent-deep);">{{ pace_min }}:{{ '%02d'|format(pace_sec) }}/km</span>
+                </div>
               </div>
-              <div class="font-semibold text-stone-900 leading-tight truncate">
-                {{ a.name or a.activity_type | replace('_', ' ') | title }}
-              </div>
-              <div class="flex items-center gap-2 mt-1.5 text-xs text-stone-600">
-                <span class="font-semibold">{{ act_min }} min</span>
-                <span class="text-stone-300">·</span>
-                <span class="font-semibold">{{ '%.2f'|format(act_km) }} km</span>
-                <span class="text-stone-300">·</span>
-                <span class="font-semibold">{{ pace_min }}:{{ '%02d'|format(pace_sec) }}/km</span>
-              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" style="color: var(--ink-muted);"><path d="M9 5l7 7-7 7"/></svg>
             </div>
-            <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-500 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          </div>
-        </button>
-      </form>
-    {% endfor %}
-  </div>
+          </button>
+        </form>
+      {% endfor %}
+    </div>
 
-  <p class="text-xs text-stone-500 mt-4 text-center">
-    {{ activities | length }} dernière{% if activities | length > 1 %}s{% endif %} course{% if activities | length > 1 %}s{% endif %} sur ton compte Garmin.
-  </p>
-{% endif %}
+    <p style="font-size: 11px; color: var(--ink-muted); margin-top: 16px; text-align: center;">
+      {{ activities | length }} dernière{% if activities | length > 1 %}s{% endif %} course{% if activities | length > 1 %}s{% endif %} sur ton compte Garmin.
+    </p>
+  {% endif %}
+</div>
 
+<style>
+  .garmin-pick:hover { border-color: var(--ink) !important; }
+  .garmin-pick:active { transform: scale(0.99); }
+</style>
 {% endblock %}

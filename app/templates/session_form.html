@@ -3,244 +3,208 @@
 
 {% block extra_head %}
 <style>
-  /* Form-specific styling */
-  .step-card {
-    background: white;
-    border-radius: 1rem;
-    border: 1px solid #e7e5e4;
-    overflow: hidden;
-    transition: border-color 150ms, box-shadow 150ms;
-  }
-  .step-card:hover {
-    border-color: #d6d3d1;
-  }
-  .step-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.625rem 0.875rem;
-    background: #fafaf9;
-    border-bottom: 1px solid #f5f5f4;
-  }
-  .step-body {
-    padding: 1rem;
-  }
-  .step-body--repeat {
-    background: linear-gradient(180deg, #fff7ed 0%, #fff 100%);
-  }
-  .step-card[data-kind="repeat"] {
-    border-color: #fdba74;
-  }
-  .step-card[data-kind="repeat"] .step-header {
-    background: #ffedd5;
-    border-bottom-color: #fed7aa;
-  }
-  /* Step type indicator dot */
-  .type-dot { width: 0.625rem; height: 0.625rem; border-radius: 9999px; flex-shrink: 0; }
-  .type-warmup { background: #facc15; }
-  .type-interval { background: #f43f5e; }
-  .type-recovery { background: #38bdf8; }
-  .type-cooldown { background: #f472b6; }
-  .type-other { background: #34d399; }
-  .type-repeat { background: #f97316; }
-  /* Difficulty radio */
+  .step-card { background: var(--paper); border-radius: 14px; border: 1px solid var(--line); overflow: hidden; transition: border-color 150ms; }
+  .step-card:hover { border-color: var(--line-strong); }
+  .step-header { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                 padding: 10px 14px; background: rgba(14,14,14,0.02); border-bottom: 1px solid var(--line); }
+  .step-body { padding: 14px; }
+  .step-body--repeat { background: linear-gradient(180deg, rgba(214,153,255,0.08) 0%, transparent 100%); }
+  .step-card[data-kind="repeat"] { border: 1.5px solid var(--ink); }
+  .step-card[data-kind="repeat"] .step-header { background: rgba(14,14,14,0.04); border-bottom-color: rgba(14,14,14,0.1); }
+
+  .type-dot { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
+  .type-warmup { background: var(--zone-warmup); }
+  .type-interval { background: var(--zone-interval); }
+  .type-recovery { background: var(--zone-recovery); }
+  .type-cooldown { background: var(--zone-cooldown); }
+  .type-other { background: var(--zone-other); }
+  .type-repeat { background: var(--ink); }
+
   .diff-option { cursor: pointer; }
   .diff-option input { position: absolute; opacity: 0; pointer-events: none; }
   .diff-option-card {
-    display: flex; align-items: center; justify-content: center; gap: 0.125rem;
-    padding: 0.625rem; border-radius: 0.75rem;
-    border: 2px solid #e7e5e4; background: white;
+    display: flex; align-items: center; justify-content: center; gap: 2px;
+    padding: 12px; border-radius: 14px;
+    border: 1.5px solid var(--line); background: var(--paper);
     transition: all 150ms;
   }
-  .diff-option:hover .diff-option-card { border-color: #d6d3d1; }
-  .diff-option input:checked + .diff-option-card {
-    border-color: #f59e0b; background: #fffbeb;
-  }
-  /* Sticky bar shadow */
+  .diff-option:hover .diff-option-card { border-color: var(--ink); }
+  .diff-option input:checked + .diff-option-card { border-color: var(--accent); background: var(--accent-soft); }
+
   .sticky-actions {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
-    background: linear-gradient(180deg, transparent 0%, #fafaf9 30%, #fafaf9 100%);
-    padding: 1.5rem 0.75rem 0.75rem;
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    background: rgba(245,241,234,0.92); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
-  @media (min-width: 640px) { .sticky-actions { padding-left: 1rem; padding-right: 1rem; } }
-  /* Hide arrows in number inputs */
+
   input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none; margin: 0;
-  }
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   input[type="number"] { -moz-appearance: textfield; }
 </style>
 {% endblock %}
 
 {% block content %}
-<a href="/admin" class="inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-900 transition">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-  Admin
-</a>
+<div class="px-4 sm:px-5 pt-4">
+  <a href="/admin" class="btn btn-ghost btn-sm" style="margin-bottom: 12px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+    Retour Coach
+  </a>
 
-<h1 class="text-2xl font-extrabold tracking-tight mt-2 mb-5">
-  {{ "Modifier la séance" if session else "Nouvelle séance" }}
-</h1>
+  <h1 class="display-l" style="margin-bottom: 18px;">
+    {{ "Modifier" if session else "Nouvelle séance" }}
+  </h1>
 
-<form method="post" action="/admin/sessions" class="space-y-4">
-  {% if session %}
-    <input type="hidden" name="session_id" value="{{ session.id }}" />
-  {% endif %}
+  <form method="post" action="/admin/sessions" class="flex flex-col" style="gap: 14px;">
+    {% if session %}<input type="hidden" name="session_id" value="{{ session.id }}" />{% endif %}
 
-  <!-- Bloc INFOS -->
-  <div class="card card-pad space-y-4">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label for="date-input" class="field-label">Date</label>
-        <input id="date-input" type="date" name="date" required
-               value="{{ session.date.isoformat() if session else today }}"
-               class="input" />
-      </div>
-      <div>
-        <span class="field-label">Difficulté</span>
-        <div class="grid grid-cols-4 gap-1.5 mt-0.5">
-          {% for i in range(1, 5) %}
-            <label class="diff-option">
-              <input type="radio" name="difficulty" value="{{ i }}"
-                     {% if (session.difficulty if session else 1) == i %}checked{% endif %}>
-              <div class="diff-option-card">
-                {% for j in range(i) %}<svg viewBox="0 0 24 24" class="w-3.5 h-3.5 text-amber-500" fill="currentColor"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>{% endfor %}
-              </div>
-            </label>
-          {% endfor %}
+    <!-- Bloc INFOS -->
+    <div class="card card-pad flex flex-col" style="gap: 16px;">
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
+        <label>
+          <span class="field-label">Date</span>
+          <input id="date-input" type="date" name="date" required
+                 value="{{ session.date.isoformat() if session else today }}" class="input" />
+        </label>
+        <div>
+          <span class="field-label">Difficulté</span>
+          <div class="grid" style="grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 0;">
+            {% for i in range(1, 5) %}
+              <label class="diff-option">
+                <input type="radio" name="difficulty" value="{{ i }}" {% if (session.difficulty if session else 1) == i %}checked{% endif %}>
+                <div class="diff-option-card">
+                  {% for j in range(i) %}<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color: var(--accent-deep);"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>{% endfor %}
+                </div>
+              </label>
+            {% endfor %}
+          </div>
         </div>
       </div>
+
+      <label>
+        <span class="field-label">Nom de la séance</span>
+        <input id="name-input" type="text" name="name" required maxlength="100"
+               value="{{ session.name if session else '' }}"
+               placeholder="Endurance fondamentale, Séance VMA…" class="input" />
+      </label>
+
+      <label>
+        <span class="field-label">Description (optionnel)</span>
+        <textarea id="desc-input" name="description" rows="3" placeholder="Instructions du coach…"
+                  class="input" style="resize: vertical;">{{ session.description if session else '' }}</textarea>
+      </label>
     </div>
 
-    <div>
-      <label for="name-input" class="field-label">Nom de la séance</label>
-      <input id="name-input" type="text" name="name" required maxlength="100"
-             value="{{ session.name if session else '' }}"
-             placeholder="Endurance fondamentale, Séance VMA…"
-             class="input" />
-    </div>
+    <!-- Bloc ETAPES -->
+    <div class="card card-pad">
+      <div class="flex items-center justify-between" style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+        <h3 class="section-title">Étapes</h3>
+        <div class="flex" style="gap: 8px; flex-wrap: wrap;">
+          <button type="button" onclick="addStep('step')" class="btn btn-ghost btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Étape
+          </button>
+          <button type="button" onclick="addStep('repeat')" class="btn btn-ghost btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6M20 20v-6h-6M4 10a8 8 0 0114-3.5L20 10M20 14a8 8 0 01-14 3.5L4 14"/></svg>
+            Bloc répété
+          </button>
+        </div>
+      </div>
 
-    <div>
-      <label for="desc-input" class="field-label">Description (optionnel)</label>
-      <textarea id="desc-input" name="description" rows="3" placeholder="Instructions du coach…"
-                class="input" style="resize: vertical;">{{ session.description if session else '' }}</textarea>
-    </div>
-  </div>
+      <div id="steps" class="flex flex-col" style="gap: 10px;"></div>
 
-  <!-- Bloc ÉTAPES -->
-  <div class="card card-pad">
-    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-      <h3 class="font-bold flex items-center gap-2 text-base">
-        <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-        Étapes de la séance
-      </h3>
-      <div class="flex gap-2 flex-wrap">
-        <button type="button" onclick="addStep('step')" class="btn btn-secondary text-sm" style="padding: 0.5rem 0.875rem;">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Étape
-        </button>
-        <button type="button" onclick="addStep('repeat')" class="btn btn-secondary text-sm" style="padding: 0.5rem 0.875rem;">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          Bloc répété
-        </button>
+      <div style="margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); font-size: 12px; color: var(--accent-deep); line-height: 1.55;">
+        <strong>Astuce</strong> : entre une allure au format <code style="font-family: monospace; background: var(--paper); padding: 1px 4px; border-radius: 4px;">5:34</code> (min:sec /km).
+        Pour répéter des étapes, ajoute d'abord un "Bloc répété" puis attache-y les étapes via le menu.
       </div>
     </div>
 
-    <div id="steps" class="space-y-3"></div>
-
-    <div class="mt-4 px-3 py-2 rounded-lg bg-stone-50 text-xs text-stone-600 leading-relaxed">
-      💡 <strong>Astuce</strong> : entre une allure au format <code class="font-mono bg-white px-1 rounded border border-stone-200">5:34</code> (min:sec /km).
-      Pour répéter des étapes, ajoute d'abord un "Bloc répété" puis attache-y les étapes suivantes via le menu.
+    <!-- Sticky actions -->
+    <div class="sticky-actions">
+      <div class="max-w-3xl mx-auto flex items-center" style="gap: 8px;">
+        <a href="/admin" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn btn-primary" style="flex: 1;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+          {{ "Enregistrer" if session else "Créer la séance" }}
+        </button>
+      </div>
     </div>
-  </div>
+  </form>
+</div>
 
-  <!-- Sticky actions -->
-  <div class="sticky-actions">
-    <div class="max-w-3xl mx-auto flex gap-2 items-center">
-      <a href="/admin" class="btn btn-secondary" style="padding: 0.625rem 1rem;">Annuler</a>
-      <button type="submit" class="btn btn-primary flex-1">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-        {{ "Enregistrer" if session else "Créer la séance" }}
-      </button>
-    </div>
-  </div>
-</form>
-
-<!-- TEMPLATE D'UNE ÉTAPE -->
+<!-- TEMPLATE etape -->
 <template id="step-tpl">
   <div class="step-item step-card" data-kind="step">
-    <!-- Header -->
     <div class="step-header">
-      <div class="flex items-center gap-2 flex-1 min-w-0">
-        <span class="step-handle text-stone-300 cursor-move select-none text-sm" title="Glisser pour réordonner">⋮⋮</span>
+      <div class="flex items-center" style="gap: 8px; flex: 1; min-width: 0;">
+        <span class="step-handle" style="color: rgba(14,14,14,0.25); cursor: move; user-select: none; font-size: 14px;" title="Glisser pour réordonner">⋮⋮</span>
         <span class="type-dot type-interval"></span>
-        <select name="" class="kind-select input-sm" style="width: auto; padding: 0.25rem 1.5rem 0.25rem 0.5rem; font-size: 12px; font-weight: 600;">
+        <select name="" class="kind-select" style="border: 1px solid var(--line); border-radius: 8px; padding: 4px 24px 4px 8px; font-size: 12px; font-weight: 600; background: var(--paper);">
           <option value="step">Étape</option>
           <option value="repeat">Bloc à répéter</option>
         </select>
-        <select name="" class="parent-select input-sm hidden" style="width: auto; padding: 0.25rem 1.5rem 0.25rem 0.5rem; font-size: 12px;">
+        <select name="" class="parent-select hidden" style="border: 1px solid var(--line); border-radius: 8px; padding: 4px 24px 4px 8px; font-size: 12px; background: var(--paper);">
           <option value="">— hors bloc —</option>
         </select>
       </div>
-      <button type="button" class="remove-btn" title="Supprimer"
-              style="width: 1.75rem; height: 1.75rem; border-radius: 9999px; color: #a8a29e; display: flex; align-items: center; justify-content: center; transition: all 150ms;"
-              onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'"
-              onmouseout="this.style.background='';this.style.color='#a8a29e'">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      <button type="button" class="remove-btn"
+              style="width: 28px; height: 28px; border-radius: 999px; color: var(--ink-muted); background: transparent; border: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 150ms;"
+              onmouseover="this.style.background='rgba(239,68,68,0.08)';this.style.color='var(--danger)';"
+              onmouseout="this.style.background='';this.style.color='var(--ink-muted)';">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
       </button>
     </div>
 
-    <!-- ÉTAPE simple -->
-    <div class="step-fields step-body space-y-3">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label class="field-label">Type</label>
-          <select name="" class="type-select input-sm">
+    <!-- ETAPE simple -->
+    <div class="step-fields step-body flex flex-col" style="gap: 10px;">
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+        <label>
+          <span class="field-label">Type</span>
+          <select name="" class="type-select input input-sm">
             <option value="warmup">Échauffement</option>
             <option value="interval" selected>Intervalle</option>
             <option value="recovery">Récupération</option>
             <option value="cooldown">Retour calme</option>
             <option value="other">Course continue</option>
           </select>
-        </div>
-        <div>
-          <label class="field-label">Label <span class="text-stone-400 normal-case font-normal">(optionnel)</span></label>
-          <input type="text" name="" class="label-input input-sm" placeholder="EF, Seuil 60, Tempo…" />
-        </div>
+        </label>
+        <label>
+          <span class="field-label">Label <span style="text-transform: none; font-weight: 500; color: var(--ink-muted);">(optionnel)</span></span>
+          <input type="text" name="" class="label-input input input-sm" placeholder="EF, Seuil 60, Tempo…" />
+        </label>
       </div>
 
       <div>
-        <label class="field-label">Durée</label>
-        <div class="grid grid-cols-3 gap-2">
-          <select name="" class="duration-type-select input-sm col-span-1">
+        <span class="field-label">Durée</span>
+        <div class="grid" style="grid-template-columns: 1fr 2fr; gap: 8px;">
+          <select name="" class="duration-type-select input input-sm">
             <option value="time">Temps</option>
             <option value="distance">Distance</option>
             <option value="lap_button">Lap manuel</option>
           </select>
-          <div class="col-span-2 relative">
-            <input type="number" step="0.1" name="" class="duration-input input-sm pr-10" placeholder="ex: 15" />
-            <span class="duration-unit absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">min</span>
+          <div style="position: relative;">
+            <input type="number" step="0.1" name="" class="duration-input input input-sm" style="padding-right: 40px;" placeholder="ex: 15" />
+            <span class="duration-unit" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--ink-muted); pointer-events: none;">min</span>
           </div>
         </div>
       </div>
 
       <div>
-        <label class="field-label">Cible d'allure / FC</label>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <select name="" class="target-type-select input-sm">
+        <span class="field-label">Cible d'allure / FC</span>
+        <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+          <select name="" class="target-type-select input input-sm">
             <option value="no_target">Sans cible</option>
             <option value="pace">Allure /km</option>
             <option value="heart_rate">FC bpm</option>
           </select>
-          <div class="target-low-wrap relative">
-            <input type="text" name="" class="target-low-input input-sm" placeholder="5:34" />
-            <span class="target-low-label absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">rapide</span>
+          <div class="target-low-wrap" style="position: relative;">
+            <input type="text" name="" class="target-low-input input input-sm" placeholder="5:34" />
+            <span class="target-low-label" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--ink-muted); pointer-events: none;">rapide</span>
           </div>
-          <div class="target-high-wrap relative">
-            <input type="text" name="" class="target-high-input input-sm" placeholder="6:04" />
-            <span class="target-high-label absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">lent</span>
+          <div class="target-high-wrap" style="position: relative;">
+            <input type="text" name="" class="target-high-input input input-sm" placeholder="6:04" />
+            <span class="target-high-label" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--ink-muted); pointer-events: none;">lent</span>
           </div>
         </div>
       </div>
@@ -248,16 +212,18 @@
 
     <!-- BLOC REPETE -->
     <div class="repeat-fields step-body step-body--repeat hidden">
-      <div class="flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-orange-700 mb-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      <div class="flex items-center" style="gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-deep); margin-bottom: 10px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6M20 20v-6h-6M4 10a8 8 0 0114-3.5L20 10M20 14a8 8 0 01-14 3.5L4 14"/></svg>
         Bloc à répéter
       </div>
-      <div class="grid grid-cols-2 gap-3 items-end">
-        <div>
-          <label class="field-label">Nombre de répétitions</label>
-          <input type="number" min="1" name="" class="repeat-count-input input-sm" placeholder="10" value="2" />
-        </div>
-        <p class="text-xs text-stone-500 leading-relaxed pb-2">Les étapes ajoutées après pourront être attachées à ce bloc.</p>
+      <div class="grid items-end" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+        <label>
+          <span class="field-label">Répétitions</span>
+          <input type="number" min="1" name="" class="repeat-count-input input input-sm" placeholder="10" value="2" />
+        </label>
+        <p style="font-size: 11px; color: var(--ink-muted); line-height: 1.4; padding-bottom: 8px;">
+          Les étapes ajoutées après pourront être attachées à ce bloc.
+        </p>
       </div>
     </div>
   </div>
@@ -269,9 +235,7 @@
     {% set sorted_steps = session.steps | sort(attribute='order') | list %}
     {% set parent_idx_map = {} %}
     {% for s in sorted_steps %}
-      {% if s.kind == 'repeat' %}
-        {% set _ = parent_idx_map.update({s.id: loop.index0}) %}
-      {% endif %}
+      {% if s.kind == 'repeat' %}{% set _ = parent_idx_map.update({s.id: loop.index0}) %}{% endif %}
     {% endfor %}
     {% for s in sorted_steps %}
       {
@@ -279,34 +243,12 @@
         type: {{ s.type.value | tojson }},
         label: {{ (s.label or '') | tojson }},
         duration_type: {{ s.duration_type.value | tojson }},
-        duration_value: {%- if s.duration_type.value == 'time' and s.duration_value -%}
-          {{ (s.duration_value / 60) }}
-        {%- elif s.duration_value -%}
-          {{ s.duration_value }}
-        {%- else -%}
-          ''
-        {%- endif -%},
+        duration_value: {%- if s.duration_type.value == 'time' and s.duration_value -%}{{ (s.duration_value / 60) }}{%- elif s.duration_value -%}{{ s.duration_value }}{%- else -%}''{%- endif -%},
         target_type: {{ s.target_type.value | tojson }},
-        target_low: {%- if s.target_type.value == 'pace' and s.target_high -%}
-          {{ s.target_high | pace | replace('/km','') | tojson }}
-        {%- elif s.target_low -%}
-          {{ s.target_low | tojson }}
-        {%- else -%}
-          ''
-        {%- endif -%},
-        target_high: {%- if s.target_type.value == 'pace' and s.target_low -%}
-          {{ s.target_low | pace | replace('/km','') | tojson }}
-        {%- elif s.target_high -%}
-          {{ s.target_high | tojson }}
-        {%- else -%}
-          ''
-        {%- endif -%},
+        target_low: {%- if s.target_type.value == 'pace' and s.target_high -%}{{ s.target_high | pace | replace('/km','') | tojson }}{%- elif s.target_low -%}{{ s.target_low | tojson }}{%- else -%}''{%- endif -%},
+        target_high: {%- if s.target_type.value == 'pace' and s.target_low -%}{{ s.target_low | pace | replace('/km','') | tojson }}{%- elif s.target_high -%}{{ s.target_high | tojson }}{%- else -%}''{%- endif -%},
         repeat_count: {{ (s.repeat_count or '') | tojson }},
-        parent_idx: {%- if s.parent_repeat_id and s.parent_repeat_id in parent_idx_map -%}
-          {{ parent_idx_map[s.parent_repeat_id] }}
-        {%- else -%}
-          ''
-        {%- endif -%},
+        parent_idx: {%- if s.parent_repeat_id and s.parent_repeat_id in parent_idx_map -%}{{ parent_idx_map[s.parent_repeat_id] }}{%- else -%}''{%- endif -%},
       },
     {% endfor %}
   ];
@@ -322,10 +264,7 @@
     const items = [...stepsEl.querySelectorAll('.step-item')];
     items.forEach((el, i) => {
       el.dataset.idx = i;
-      const setName = (sel, name) => {
-        const node = el.querySelector(sel);
-        if (node) node.name = `steps[${i}].${name}`;
-      };
+      const setName = (sel, name) => { const node = el.querySelector(sel); if (node) node.name = `steps[${i}].${name}`; };
       setName('.kind-select', 'kind');
       setName('.parent-select', 'parent_idx');
       setName('.type-select', 'type');
@@ -350,13 +289,10 @@
       if (!sel) return;
       const current = sel.value;
       sel.innerHTML = '<option value="">— hors bloc —</option>' +
-        repeatIndices
-          .filter((o) => o.i < i)
-          .map((o) => `<option value="${o.i}">↳ dans bloc #${o.i + 1}</option>`)
-          .join('');
+        repeatIndices.filter((o) => o.i < i)
+          .map((o) => `<option value="${o.i}">↳ dans bloc #${o.i + 1}</option>`).join('');
       sel.value = current;
-      const showSelect = el.dataset.kind === 'step' && repeatIndices.length > 0;
-      sel.classList.toggle('hidden', !showSelect);
+      sel.classList.toggle('hidden', !(el.dataset.kind === 'step' && repeatIndices.length > 0));
     });
   }
 
@@ -364,14 +300,9 @@
     el.dataset.kind = kind;
     el.querySelector('.step-fields').classList.toggle('hidden', kind === 'repeat');
     el.querySelector('.repeat-fields').classList.toggle('hidden', kind !== 'repeat');
-    // Update type dot
     const dot = el.querySelector('.type-dot');
-    if (kind === 'repeat') {
-      dot.className = 'type-dot type-repeat';
-    } else {
-      const t = el.querySelector('.type-select').value;
-      dot.className = 'type-dot type-' + t;
-    }
+    if (kind === 'repeat') { dot.className = 'type-dot type-repeat'; }
+    else { dot.className = 'type-dot type-' + el.querySelector('.type-select').value; }
   }
 
   function applyTargetType(el, ttype) {
@@ -386,27 +317,17 @@
     highWrap.style.opacity = showRange ? '1' : '0.4';
     low.disabled = !showRange;
     high.disabled = !showRange;
-    if (ttype === 'pace') {
-      low.placeholder = '5:34'; high.placeholder = '6:04';
-      lowLabel.textContent = 'rapide'; highLabel.textContent = 'lent';
-    } else if (ttype === 'heart_rate') {
-      low.placeholder = '140'; high.placeholder = '160';
-      lowLabel.textContent = 'min'; highLabel.textContent = 'max';
-    } else {
-      lowLabel.textContent = ''; highLabel.textContent = '';
-    }
+    if (ttype === 'pace') { low.placeholder = '5:34'; high.placeholder = '6:04'; lowLabel.textContent = 'rapide'; highLabel.textContent = 'lent'; }
+    else if (ttype === 'heart_rate') { low.placeholder = '140'; high.placeholder = '160'; lowLabel.textContent = 'min'; highLabel.textContent = 'max'; }
+    else { lowLabel.textContent = ''; highLabel.textContent = ''; }
   }
 
   function applyDurationType(el, dtype) {
     const unit = el.querySelector('.duration-unit');
     const input = el.querySelector('.duration-input');
-    if (dtype === 'time') {
-      unit.textContent = 'min'; input.disabled = false;
-    } else if (dtype === 'distance') {
-      unit.textContent = 'm'; input.disabled = false;
-    } else {
-      unit.textContent = ''; input.disabled = true; input.value = '';
-    }
+    if (dtype === 'time') { unit.textContent = 'min'; input.disabled = false; }
+    else if (dtype === 'distance') { unit.textContent = 'm'; input.disabled = false; }
+    else { unit.textContent = ''; input.disabled = true; input.value = ''; }
   }
 
   window.addStep = function (kind, fill) {
@@ -415,31 +336,16 @@
     const kindSel = node.querySelector('.kind-select');
     kindSel.value = kind;
     applyKind(node, kind);
-    kindSel.addEventListener('change', () => {
-      applyKind(node, kindSel.value);
-      refreshNames();
-    });
+    kindSel.addEventListener('change', () => { applyKind(node, kindSel.value); refreshNames(); });
     const typeSel = node.querySelector('.type-select');
     typeSel.addEventListener('change', () => {
-      if (node.dataset.kind === 'step') {
-        node.querySelector('.type-dot').className = 'type-dot type-' + typeSel.value;
-      }
+      if (node.dataset.kind === 'step') node.querySelector('.type-dot').className = 'type-dot type-' + typeSel.value;
     });
-    node.querySelector('.target-type-select').addEventListener('change', (e) => {
-      applyTargetType(node, e.target.value);
-    });
-    node.querySelector('.duration-type-select').addEventListener('change', (e) => {
-      applyDurationType(node, e.target.value);
-    });
-    node.querySelector('.remove-btn').addEventListener('click', () => {
-      node.remove();
-      refreshNames();
-    });
+    node.querySelector('.target-type-select').addEventListener('change', (e) => applyTargetType(node, e.target.value));
+    node.querySelector('.duration-type-select').addEventListener('change', (e) => applyDurationType(node, e.target.value));
+    node.querySelector('.remove-btn').addEventListener('click', () => { node.remove(); refreshNames(); });
     if (fill) {
-      const set = (sel, val) => {
-        const n = node.querySelector(sel);
-        if (n != null && val != null) n.value = val;
-      };
+      const set = (sel, val) => { const n = node.querySelector(sel); if (n != null && val != null) n.value = val; };
       set('.type-select', fill.type);
       set('.label-input', fill.label);
       set('.duration-type-select', fill.duration_type);
@@ -451,10 +357,7 @@
       set('.parent-select', fill.parent_idx);
       applyTargetType(node, fill.target_type || 'no_target');
       applyDurationType(node, fill.duration_type || 'time');
-      // Update dot color after type fill
-      if (kind === 'step' && fill.type) {
-        node.querySelector('.type-dot').className = 'type-dot type-' + fill.type;
-      }
+      if (kind === 'step' && fill.type) node.querySelector('.type-dot').className = 'type-dot type-' + fill.type;
     } else {
       applyTargetType(node, 'no_target');
       applyDurationType(node, 'time');
@@ -462,7 +365,6 @@
     refreshNames();
   };
 
-  // Pre-fill if editing
   const initial = window.__INITIAL_STEPS__ || [];
   initial.forEach((step) => addStep(step.kind || 'step', step));
   if (initial.length === 0) addStep('step');
