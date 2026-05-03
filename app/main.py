@@ -36,6 +36,8 @@ def _validate_production_config() -> None:
         issues.append("COACH_PASSWORD est trop faible")
     if settings.athlete_password in ("", "changeme", "changeme123"):
         issues.append("ATHLETE_PASSWORD est trop faible")
+    if settings.lea_email and settings.lea_password in ("", "changeme", "changeme123"):
+        issues.append("LEA_PASSWORD est trop faible (defini car LEA_EMAIL est set)")
     if issues:
         raise RuntimeError(
             "Configuration de production invalide :\n  - "
