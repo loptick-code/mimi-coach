@@ -126,7 +126,9 @@ async def stats(
     user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
-    """Recap des seances : ce mois / cette annee / tout, avec realise vs prevu."""
+    """Stats masquees pour le moment - redirige vers la page d'accueil."""
+    return RedirectResponse(url="/", status_code=303)
+    # Code original conserve ci-dessous, reactivable en supprimant le return ci-dessus.
     today = date.today()
     athlete = _resolve_target_athlete(db, user)
 
