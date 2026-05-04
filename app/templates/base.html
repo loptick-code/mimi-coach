@@ -186,10 +186,7 @@
 
         <nav class="nav-tabs">
           <a href="/" class="nav-tab {% if request.url.path in ['/', ''] %}nav-tab-active{% endif %}">Séances</a>
-          <a href="/stats" class="nav-tab {% if request.url.path.startswith('/stats') %}nav-tab-active{% endif %}">Stats</a>
-          {% if user.role.value == 'coach' or user.role == 'coach' %}
           <a href="/admin" class="nav-tab {% if request.url.path.startswith('/admin') %}nav-tab-active{% endif %}">Coach</a>
-          {% endif %}
         </nav>
 
         <div class="relative" data-account-menu>
@@ -241,25 +238,5 @@
       {% block content %}{% endblock %}
     </main>
 
-    {% set _lyrics = [
-      "Elle m'dit que j'suis mimi",
-      "Moi, j't'aime à l'infini",
-      "Ça sera jamais fini",
-      "Y en a pas deux comme toi",
-      "On s'aime comme des fous",
-      "Amore mio, j'aime que toi",
-      "Crois-moi, y en a pas deux comme toi",
-      "Quand j'la vois, elle me remonte le moral",
-      "Nous deux ensemble, jusqu'à c'qu'on finisse là-haut",
-      "Faut qu'on passe des soirées sans penser",
-    ] %}
-    {% block footer %}
-    <footer class="max-w-3xl mx-auto px-4 pb-8 pt-2 text-center select-none">
-      <span class="lyric-tag">
-        <span style="font-size: 9px;">♫</span>
-        <span>« {{ _lyrics | random }} »</span>
-      </span>
-    </footer>
-    {% endblock %}
   </body>
 </html>
