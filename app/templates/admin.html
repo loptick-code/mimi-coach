@@ -138,6 +138,6 @@
     </div>
   </div>
 
-  <div style="text-align: center; margin-top: 24px;">{{ lyric_tag() }}</div>
+  {% if not is_athlete2(user) %}<div style="text-align: center; margin-top: 24px;">{{ lyric_tag() }}</div>{% endif %}
 </div>
 {% endblock %}

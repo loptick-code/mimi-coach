@@ -49,3 +49,21 @@ def format_distance_meters(meters: float | None) -> str:
 templates.env.filters["pace"] = format_pace_m_per_s
 templates.env.filters["duration"] = format_duration_seconds
 templates.env.filters["distance"] = format_distance_meters
+
+
+# --- Globals ---
+
+
+def is_athlete2(user) -> bool:
+    """True si le user connecte est le 2eme athlete (cf ATHLETE2_EMAIL)."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    return bool(
+        user is not None
+        and settings.athlete2_email
+        and (user.email or "").lower() == settings.athlete2_email.lower()
+    )
+
+
+templates.env.globals["is_athlete2"] = is_athlete2

@@ -182,7 +182,7 @@
     {% from "_macros.html" import app_logo %}
     <header class="sticky top-0 z-30" style="background: rgba(245,241,234,0.85); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line);">
       <div class="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
-        <a href="/" class="flex items-center" style="color: var(--ink);">{{ app_logo(size=22, with_text=True) }}</a>
+        <a href="/" class="flex items-center" style="color: var(--ink);">{{ app_logo(size=22, with_text=True, user=user) }}</a>
 
         <nav class="nav-tabs">
           <a href="/" class="nav-tab {% if request.url.path in ['/', ''] %}nav-tab-active{% endif %}">Séances</a>
