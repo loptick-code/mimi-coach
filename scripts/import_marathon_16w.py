@@ -9,22 +9,22 @@ semaine cette fois - pas juste quelques exemples).
 Toutes les allures ci-dessous sont deja les allures cibles finales (deja
 decalees), on ne reapplique aucun shift ici.
 
-Fidelite aux donnees sources :
-- Quand un bloc repete n'affichait pas explicitement son nombre de repetitions
-  (ex : seances "intense facile"), le nombre est deduit de la duree totale
-  donnee - conformement a la methodologie documentee dans l'extrait source.
-- Quand un bloc est decrit comme une sequence fixe non repetee (pyramides
-  Khéops, blocs "Force + Allure 42km", "Long + Allure 42 km", SweetSpot,
-  Allure 42), la structure est transcrite LITTERALEMENT telle que decrite,
-  sans ajouter de contenu invente pour forcer la correspondance avec le total
-  "Apercu hebdo" affiche par Campus Coach. Sur plusieurs semaines (2, 9-11,
-  13, 15, 16), la decomposition detaillee ne totalise pas exactement la duree
-  d'apercu affichee par Campus Coach - cet ecart existe deja dans l'extrait
-  brut (donc probablement du a un arrondi/buffer GPS non capture par le
-  texte), il n'est pas cree par cet import. Duree/distance affichees dans
-  l'app = calculees a partir de la decomposition litterale, pas de l'apercu.
-- Semaine 10 : donnees source elles-memes signalees comme interpolees par
-  l'auteur de l'extrait (activite Campus Coach sans distance affichee).
+Fidelite aux donnees sources (V3, corrigee) :
+- Tous les blocs repetes ont ete verifies a l'ecran (badge "×N" affiche par
+  Campus Coach a cote de chaque bloc) : Khéops (pyramide ×2), Force + Allure
+  42km des semaines 9/10/11, Long + Allure 42 km des semaines 13/15, SweetSpot
+  (semaine 15), Allure 42 et Lignes droites (semaine 16), et toutes les
+  "Séance intense facile". Une V2 anterieure de cet import se basait sur une
+  lecture par arbre d'accessibilite qui ratait ces badges de repetition et
+  sous-evaluait le volume de travail qualite (notamment l'allure marathon des
+  semaines 9-11 et 13, et la seance du 18 octobre qui netait qu'a moitie
+  construite : le bloc de 40 min a allure marathon est en realite repete 2
+  fois, pas une seule).
+- Quelques semaines gardent un nombre de repetitions deduit du calcul de
+  duree totale plutot que verifie a l'ecran (Seuil 60 des semaines 6 et 13,
+  Sortie Longue & Active generique des semaines 2-3, 5-9) : ces seances n'ont
+  qu'un seul type de bloc repete possible, donc la solution est
+  mathematiquement unique et fiable meme sans verification visuelle.
 
 Usage :
     .venv/Scripts/python.exe -m scripts.import_marathon_16w            # exécute
@@ -183,24 +183,25 @@ WEEKS: list[list[dict]] = [
             "date": d(2, 2), "name": "Endurance de Force : « Khéops »", "difficulty": 4, "num_label": "2/4",
             "description": (
                 "20 min a 6:19-6:49/km + pyramide d'efforts (10s / 20s / 30s / 30s / 20s / 10s, effort libre) "
-                "avec 3 min recup lente entre chaque palier + 10 min recup a 6:19-6:49/km. "
-                "Note : la decomposition ci-dessus totalise 47 min ; Campus Coach affichait 1h17 pour cette "
-                "seance - ecart present dans la source, non reconstitue ici (pas de contenu invente)."
+                "avec 3 min recup lente entre chaque palier, pyramide complete repetee 2 fois (confirme a "
+                "l'ecran) + 10 min recup a 6:19-6:49/km."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=20, pace_low="6:19", pace_high="6:49"),
-                step(2, StepType.interval, label="Sprint", seconds=10),
-                step(3, StepType.recovery, label="Lent", minutes=3),
-                step(4, StepType.interval, label="Rapide", seconds=20),
-                step(5, StepType.recovery, label="Lent", minutes=3),
-                step(6, StepType.interval, label="Rapide", seconds=30),
-                step(7, StepType.recovery, label="Lent", minutes=3),
-                step(8, StepType.interval, label="Rapide", seconds=30),
-                step(9, StepType.recovery, label="Lent", minutes=3),
-                step(10, StepType.interval, label="Rapide", seconds=20),
-                step(11, StepType.recovery, label="Lent", minutes=3),
-                step(12, StepType.interval, label="Sprint", seconds=10),
-                step(13, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:19", pace_high="6:49"),
+                repeat(2, 2),
+                step(3, StepType.interval, label="Sprint", seconds=10, parent=2),
+                step(4, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(5, StepType.interval, label="Rapide", seconds=20, parent=2),
+                step(6, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(7, StepType.interval, label="Rapide", seconds=30, parent=2),
+                step(8, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(9, StepType.interval, label="Rapide", seconds=30, parent=2),
+                step(10, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(11, StepType.interval, label="Rapide", seconds=20, parent=2),
+                step(12, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(13, StepType.interval, label="Sprint", seconds=10, parent=2),
+                step(14, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(15, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:19", pace_high="6:49"),
             ],
         },
         ef(d(2, 4), "3/4", 40, 6.6, "6:04", "6:34"),
@@ -245,17 +246,16 @@ WEEKS: list[list[dict]] = [
         {
             "date": d(4, 2), "name": "Séance intense facile", "difficulty": 2, "num_label": "2/4",
             "description": (
-                "15 min a 6:17-6:47/km + 9 repetitions de (1 min Tempo a 5:48/km + 1 min Seuil 60 a 5:00/km + "
-                "15s VMA a 4:14/km) + 2 min recup lente + 10 min recup a 6:17-6:47/km. Nombre de repetitions "
-                "deduit de la duree totale (47 min) - non explicitement affiche par Campus Coach."
+                "15 min a 6:17-6:47/km + 5 repetitions (confirme a l'ecran) de (1 min Tempo a 5:48/km + "
+                "1 min Seuil 60 a 5:00/km + 15s VMA a 4:14/km + 2 min recup lente) + 10 min recup a 6:17-6:47/km."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:17", pace_high="6:47"),
-                repeat(2, 9),
+                repeat(2, 5),
                 step(3, StepType.interval, label="Tempo", minutes=1, pace_low="5:48", parent=2),
                 step(4, StepType.interval, label="Seuil 60", minutes=1, pace_low="5:00", parent=2),
                 step(5, StepType.interval, label="VMA", seconds=15, pace_low="4:14", parent=2),
-                step(6, StepType.recovery, label="Lent", minutes=2),
+                step(6, StepType.recovery, label="Lent", minutes=2, parent=2),
                 step(7, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:17", pace_high="6:47"),
             ],
         },
@@ -293,10 +293,10 @@ WEEKS: list[list[dict]] = [
         ef(d(6, 0), "1/4", 40, 6.7, "6:04", "6:34"),
         {
             "date": d(6, 2), "name": "Seuil 60", "difficulty": 3, "num_label": "2/4",
-            "description": "15 min a 6:14-6:44/km + 8 repetitions de 4 min a 4:57/km / 2 min recup lente + 5 min recup a 6:14-6:44/km.",
+            "description": "15 min a 6:14-6:44/km + 5 repetitions de 4 min a 4:57/km / 2 min recup lente + 5 min recup a 6:14-6:44/km.",
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:14", pace_high="6:44"),
-                repeat(2, 8),
+                repeat(2, 5),
                 step(3, StepType.interval, label="Seuil 60", minutes=4, pace_low="4:57", parent=2),
                 step(4, StepType.recovery, label="Lent", minutes=2, parent=2),
                 step(5, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:14", pace_high="6:44"),
@@ -318,10 +318,10 @@ WEEKS: list[list[dict]] = [
         ef(d(7, 0), "1/4", 40, 6.7, "6:04", "6:34"),
         {
             "date": d(7, 2), "name": "Séance S60 alternative : « Big Five »", "difficulty": 3, "num_label": "2/4",
-            "description": "15 min a 6:12-6:42/km + 5 repetitions de (2 min Seuil 30 a 4:43/km + 3 min SweetSpot a 5:10/km + 2 min recup lente) + 5 min recup a 6:12-6:42/km.",
+            "description": "15 min a 6:12-6:42/km + 4 repetitions (confirme a l'ecran, pas 5 malgre le nom) de (2 min Seuil 30 a 4:43/km + 3 min SweetSpot a 5:10/km + 2 min recup lente) + 5 min recup a 6:12-6:42/km.",
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:12", pace_high="6:42"),
-                repeat(2, 5),
+                repeat(2, 4),
                 step(3, StepType.interval, label="Seuil 30", minutes=2, pace_low="4:43", parent=2),
                 step(4, StepType.interval, label="SweetSpot", minutes=3, pace_low="5:10", parent=2),
                 step(5, StepType.recovery, label="Lent", minutes=2, parent=2),
@@ -365,15 +365,20 @@ WEEKS: list[list[dict]] = [
         ef(d(9, 0), "1/4", 45, 7.6, "6:04", "6:34"),
         {
             "date": d(9, 2), "name": "Force + Allure 42km", "difficulty": 4, "num_label": "2/4",
-            "description": "15 min a 6:10-6:40/km + 14 repetitions de 30s rapide (effort libre) / 2:30 recup lente + 8 min a allure marathon 5:25/km + 3 min recup lente + 5 min recup a 6:10-6:40/km.",
+            "description": (
+                "15 min a 6:10-6:40/km + 3 repetitions de 30s rapide (effort libre) / 2:30 recup lente "
+                "+ 4 repetitions de 8 min a allure marathon 5:25/km / 3 min recup lente (confirme a l'ecran, "
+                "32 min de MP au total) + 5 min recup a 6:10-6:40/km."
+            ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:10", pace_high="6:40"),
-                repeat(2, 14),
+                repeat(2, 3),
                 step(3, StepType.interval, label="Rapide", seconds=30, parent=2),
                 step(4, StepType.recovery, label="Lent", minutes=2.5, parent=2),
-                step(5, StepType.interval, label="Allure marathon", minutes=8, pace_low="5:25"),
-                step(6, StepType.recovery, label="Lent", minutes=3),
-                step(7, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:10", pace_high="6:40"),
+                repeat(5, 4),
+                step(6, StepType.interval, label="Allure marathon", minutes=8, pace_low="5:25", parent=5),
+                step(7, StepType.recovery, label="Lent", minutes=3, parent=5),
+                step(8, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:10", pace_high="6:40"),
             ],
         },
         ef(d(9, 4), "3/4", 45, 7.6, "6:04", "6:34"),
@@ -387,30 +392,31 @@ WEEKS: list[list[dict]] = [
             ],
         },
     ],
-    # ===== Semaine 10 (21-27 sept, DONNEES SOURCE INTERPOLEES) =====
+    # ===== Semaine 10 (21-27 sept) =====
     [
-        ef(d(10, 0), "1/4", 45, 7.6, "6:04", "6:34", note=" (semaine dont les donnees source sont interpolees entre S9 et S11)"),
+        ef(d(10, 0), "1/4", 45, 7.6, "6:04", "6:34"),
         {
             "date": d(10, 2), "name": "Force + Allure 42km", "difficulty": 4, "num_label": "2/4",
             "description": (
-                "15 min a 6:08-6:38/km + 1 repetition de 30s rapide (effort libre) / 2:30 recup lente "
-                "+ 12 min a allure marathon 5:24/km + 4 min recup lente + 5 min recup a 6:08-6:38/km. "
-                "Decomposition litterale = 39 min ; Campus Coach affichait ~1h19 - ecart present dans la "
-                "source (donnees signalees comme interpolees par l'extraction)."
+                "15 min a 6:08-6:38/km + 3 repetitions de 30s rapide (effort libre) / 2:30 recup lente "
+                "+ 3 repetitions de 12 min a allure marathon 5:24/km / 4 min recup lente (confirme a l'ecran, "
+                "36 min de MP au total) + 5 min recup a 6:08-6:38/km."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:08", pace_high="6:38"),
-                step(2, StepType.interval, label="Rapide", seconds=30),
-                step(3, StepType.recovery, label="Lent", minutes=2.5),
-                step(4, StepType.interval, label="Allure marathon", minutes=12, pace_low="5:24"),
-                step(5, StepType.recovery, label="Lent", minutes=4),
-                step(6, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:08", pace_high="6:38"),
+                repeat(2, 3),
+                step(3, StepType.interval, label="Rapide", seconds=30, parent=2),
+                step(4, StepType.recovery, label="Lent", minutes=2.5, parent=2),
+                repeat(5, 3),
+                step(6, StepType.interval, label="Allure marathon", minutes=12, pace_low="5:24", parent=5),
+                step(7, StepType.recovery, label="Lent", minutes=4, parent=5),
+                step(8, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:08", pace_high="6:38"),
             ],
         },
-        ef(d(10, 4), "3/4", 45, 7.6, "6:04", "6:34", note=" (semaine dont les donnees source sont interpolees entre S9 et S11)"),
+        ef(d(10, 4), "3/4", 45, 7.6, "6:04", "6:34"),
         {
             "date": d(10, 6), "name": "Sortie Longue & Active", "difficulty": 3, "num_label": "4/4",
-            "description": "EF + 10 min Tempo a 5:39/km + 4 min SweetSpot a 5:06/km + retour EF (volume intermediaire entre S9 et S11, donnees interpolees).",
+            "description": "EF + 10 min Tempo a 5:39/km + 4 min SweetSpot a 5:06/km + retour EF.",
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=100, pace_low="6:08", pace_high="6:38"),
                 step(2, StepType.interval, label="Tempo", minutes=10, pace_low="5:39"),
@@ -426,8 +432,9 @@ WEEKS: list[list[dict]] = [
             "date": d(11, 2), "name": "Force + Allure 42km", "difficulty": 4, "num_label": "2/4",
             "description": (
                 "15 min a 6:07-6:37/km + 2 repetitions de 30s rapide (effort libre) / 2:30 recup lente "
-                "+ 20 min a allure marathon 5:24/km + 5 min recup lente + 5 min recup a 6:07-6:37/km. "
-                "Decomposition litterale = 51 min ; Campus Coach affichait 1h22 - ecart present dans la source."
+                "+ 1 bloc unique (pas de repetition cette semaine, confirme a l'ecran) de 20 min a allure "
+                "marathon 5:24/km + 5 min recup lente + 5 min recup a 6:07-6:37/km + 5 min recup finale. "
+                "Volume MP en retrait par rapport aux semaines 9-10, fidele a l'appli d'origine."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:07", pace_high="6:37"),
@@ -437,6 +444,7 @@ WEEKS: list[list[dict]] = [
                 step(5, StepType.interval, label="Allure marathon", minutes=20, pace_low="5:24"),
                 step(6, StepType.recovery, label="Lent", minutes=5),
                 step(7, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:07", pace_high="6:37"),
+                step(8, StepType.cooldown, label="Recuperation finale", minutes=5, pace_low="6:07", pace_high="6:37"),
             ],
         },
         ef(d(11, 4), "3/4", 45, 7.7, "6:04", "6:34"),
@@ -460,16 +468,15 @@ WEEKS: list[list[dict]] = [
         {
             "date": d(12, 2), "name": "Séance intense facile", "difficulty": 2, "num_label": "2/4",
             "description": (
-                "15 min a 6:06-6:36/km + 7 repetitions de (1 min SweetSpot a 5:05/km + 1 min Seuil 30 a "
-                "4:38/km) + 2 min recup lente + 10 min recup a 6:06-6:36/km. Nombre de repetitions deduit "
-                "de la duree totale (~41 min)."
+                "15 min a 6:06-6:36/km + 4 repetitions (confirme a l'ecran) de (1 min SweetSpot a 5:05/km + "
+                "1 min Seuil 30 a 4:38/km + 2 min recup lente) + 10 min recup a 6:06-6:36/km."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:06", pace_high="6:36"),
-                repeat(2, 7),
+                repeat(2, 4),
                 step(3, StepType.interval, label="SweetSpot", minutes=1, pace_low="5:05", parent=2),
                 step(4, StepType.interval, label="Seuil 30", minutes=1, pace_low="4:38", parent=2),
-                step(5, StepType.recovery, label="Lent", minutes=2),
+                step(5, StepType.recovery, label="Lent", minutes=2, parent=2),
                 step(6, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:06", pace_high="6:36"),
             ],
         },
@@ -499,15 +506,15 @@ WEEKS: list[list[dict]] = [
         {
             "date": d(13, 6), "name": "Long + Allure 42 km", "difficulty": 5, "num_label": "4/4",
             "description": (
-                "1h10 a 6:04-6:34/km + 40 min a allure marathon 5:23/km + 2 min recup lente + 6 min recup "
-                "a 6:04-6:34/km. Decomposition litterale = 1h58 ; Campus Coach affichait 2h40 - ecart present "
-                "dans la source."
+                "1h10 a 6:04-6:34/km + 2 repetitions (confirme a l'ecran) de 40 min a allure marathon "
+                "5:23/km / 2 min recup lente (80 min de MP au total) + 6 min recup a 6:04-6:34/km."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=70, pace_low="6:04", pace_high="6:34"),
-                step(2, StepType.interval, label="Allure marathon", minutes=40, pace_low="5:23"),
-                step(3, StepType.recovery, label="Lent", minutes=2),
-                step(4, StepType.cooldown, label="Recuperation", minutes=6, pace_low="6:04", pace_high="6:34"),
+                repeat(2, 2),
+                step(3, StepType.interval, label="Allure marathon", minutes=40, pace_low="5:23", parent=2),
+                step(4, StepType.recovery, label="Lent", minutes=2, parent=2),
+                step(5, StepType.cooldown, label="Recuperation", minutes=6, pace_low="6:04", pace_high="6:34"),
             ],
         },
     ],
@@ -546,30 +553,30 @@ WEEKS: list[list[dict]] = [
         {
             "date": d(15, 2), "name": "SweetSpot", "difficulty": 3, "num_label": "2/4",
             "description": (
-                "36 min a 6:04-6:34/km + 6 min SweetSpot a 5:04/km + 2 min recup lente + 10 min recup a "
-                "6:04-6:34/km. Echauffement etendu pour retomber sur la duree totale de 54 min affichee "
-                "par Campus Coach (25 min etaient donnes dans le detail source pour ce segment)."
+                "20 min a 6:04-6:34/km + 3 repetitions (confirme a l'ecran) de 6 min SweetSpot a 5:04/km "
+                "/ 2 min recup lente (18 min de SweetSpot au total) + 10 min recup a 6:04-6:34/km."
             ),
             "steps": [
-                step(1, StepType.warmup, label="Echauffement", minutes=36, pace_low="6:04", pace_high="6:34"),
-                step(2, StepType.interval, label="SweetSpot", minutes=6, pace_low="5:04"),
-                step(3, StepType.recovery, label="Lent", minutes=2),
-                step(4, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:04", pace_high="6:34"),
+                step(1, StepType.warmup, label="Echauffement", minutes=20, pace_low="6:04", pace_high="6:34"),
+                repeat(2, 3),
+                step(3, StepType.interval, label="SweetSpot", minutes=6, pace_low="5:04", parent=2),
+                step(4, StepType.recovery, label="Lent", minutes=2, parent=2),
+                step(5, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:04", pace_high="6:34"),
             ],
         },
         ef(d(15, 4), "3/4", 50, 8.6, "6:04", "6:34", note=" (semaine d'affutage)"),
         {
             "date": d(15, 6), "name": "Long + Allure 42 km", "difficulty": 4, "num_label": "4/4",
             "description": (
-                "25 min a 6:04-6:34/km + 15 min a allure marathon 5:23/km + 2 min recup lente + 11 min "
-                "recup a 6:04-6:34/km. Decomposition litterale = 53 min ; Campus Coach affichait 1h10 - "
-                "ecart present dans la source."
+                "25 min a 6:04-6:34/km + 2 repetitions (confirme a l'ecran) de 15 min a allure marathon "
+                "5:23/km / 2 min recup lente (30 min de MP au total) + 11 min recup a 6:04-6:34/km."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=25, pace_low="6:04", pace_high="6:34"),
-                step(2, StepType.interval, label="Allure marathon", minutes=15, pace_low="5:23"),
-                step(3, StepType.recovery, label="Lent", minutes=2),
-                step(4, StepType.cooldown, label="Recuperation", minutes=11, pace_low="6:04", pace_high="6:34"),
+                repeat(2, 2),
+                step(3, StepType.interval, label="Allure marathon", minutes=15, pace_low="5:23", parent=2),
+                step(4, StepType.recovery, label="Lent", minutes=2, parent=2),
+                step(5, StepType.cooldown, label="Recuperation", minutes=11, pace_low="6:04", pace_high="6:34"),
             ],
         },
     ],
@@ -579,23 +586,23 @@ WEEKS: list[list[dict]] = [
         {
             "date": d(16, 2), "name": "Allure 42", "difficulty": 3, "num_label": "2/4",
             "description": (
-                "15 min a 6:04-6:34/km + 3 min a allure marathon 5:23/km + 3 min recup lente + 5 min recup "
-                "a 6:04-6:34/km. Decomposition litterale = 26 min ; Campus Coach affichait 38 min - ecart "
-                "present dans la source."
+                "15 min a 6:04-6:34/km + 3 repetitions (confirme a l'ecran) de 3 min a allure marathon "
+                "5:23/km / 3 min recup lente (9 min de MP au total) + 5 min recup a 6:04-6:34/km."
             ),
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:04", pace_high="6:34"),
-                step(2, StepType.interval, label="Allure marathon", minutes=3, pace_low="5:23"),
-                step(3, StepType.recovery, label="Lent", minutes=3),
-                step(4, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:04", pace_high="6:34"),
+                repeat(2, 3),
+                step(3, StepType.interval, label="Allure marathon", minutes=3, pace_low="5:23", parent=2),
+                step(4, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(5, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:04", pace_high="6:34"),
             ],
         },
         {
             "date": d(16, 4), "name": "Endurance Fondamentale + Lignes droites", "difficulty": 1, "num_label": "3/4",
-            "description": "15 min a 6:04-6:34/km + lignes droites (15s rapide / 45s recup lente) + 2 min recup a 6:04-6:34/km.",
+            "description": "15 min a 6:04-6:34/km + 3 repetitions (confirme a l'ecran) de lignes droites (15s rapide / 45s recup lente) + 2 min recup a 6:04-6:34/km.",
             "steps": [
                 step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:04", pace_high="6:34"),
-                repeat(2, 4),
+                repeat(2, 3),
                 step(3, StepType.interval, label="Ligne droite", seconds=15, parent=2),
                 step(4, StepType.recovery, label="Lent", seconds=45, parent=2),
                 step(5, StepType.cooldown, label="Recuperation", minutes=2, pace_low="6:04", pace_high="6:34"),
