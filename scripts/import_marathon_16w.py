@@ -652,13 +652,30 @@ def main() -> None:
                 .where(Session.date >= plan_start)
                 .where(Session.date <= plan_end)
             ).all()
-            for s in existing:
-                if not args.dry_run:
+            if existing and not args.dry_run:
+                existing_ids = [s.id for s in existing]
+                # Le FK auto-reference Step.parent_repeat_id -> Step.id n'est pas modelise
+                # comme relationship() cote ORM : le cascade delete-orphan de Session peut donc
+                # tenter de supprimer un step "repeat" avant ses enfants et violer la contrainte
+                # FK (arrive des qu'une seance a plusieurs blocs repetes). On supprime donc les
+                # steps enfants (parent_repeat_id non nul) avant les steps parents/simples.
+                child_steps = db.exec(
+                    select(Step).where(Step.session_id.in_(existing_ids)).where(Step.parent_repeat_id.is_not(None))
+                ).all()
+                for st in child_steps:
+                    db.delete(st)
+                db.flush()
+                other_steps = db.exec(
+                    select(Step).where(Step.session_id.in_(existing_ids))
+                ).all()
+                for st in other_steps:
+                    db.delete(st)
+                db.flush()
+                for s in existing:
                     db.delete(s)
+                db.flush()
             if existing:
                 print(f"[wipe] {len(existing)} seances existantes supprimees dans la periode du plan")
-            if not args.dry_run:
-                db.flush()
 
             for week_idx, week_sessions in enumerate(WEEKS, start=1):
                 week_total_min = 0
