@@ -45,6 +45,15 @@ def _build_engine():
     connect_args: dict = {}
     if is_sqlite:
         connect_args["check_same_thread"] = False
+    if is_postgres:
+        # Supabase/pgbouncer en mode "Transaction pooling" ne garantit pas que
+        # deux requetes consecutives atterrissent sur la meme connexion Postgres
+        # cote serveur : les prepared statements de psycopg (caches cote client
+        # par forme de requete) peuvent donc pointer vers une session qui ne les
+        # connait plus, d'ou des erreurs DuplicatePreparedStatement en repetant
+        # une meme requete. On desactive ce cache (recommande par psycopg pour
+        # cet usage).
+        connect_args["prepare_threshold"] = None
 
     engine_kwargs: dict = {"echo": False, "connect_args": connect_args}
     if is_postgres:
