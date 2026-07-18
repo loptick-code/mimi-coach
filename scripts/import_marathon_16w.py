@@ -9,25 +9,27 @@ semaine cette fois - pas juste quelques exemples).
 Toutes les allures ci-dessous sont deja les allures cibles finales (deja
 decalees), on ne reapplique aucun shift ici.
 
-Fidelite aux donnees sources (V4, corrigee) :
+Fidelite aux donnees sources (V5, toutes les 16 semaines verifiees) :
 - Tous les blocs repetes ont ete verifies a l'ecran (badge "×N" affiche par
-  Campus Coach a cote de chaque bloc) : Khéops (pyramide ×2), Force + Allure
-  42km des semaines 9/10/11, Long + Allure 42 km des semaines 13/15, SweetSpot
-  (semaine 15), Allure 42 et Lignes droites (semaine 16), toutes les "Séance
-  intense facile", et desormais aussi les Sorties Longues & Actives des
-  semaines 3 (Tempo+SweetSpot ×3), 5 (Tempo ×2), 6 (structure imbriquee
-  Tempo/SweetSpot ×2{×7} retranscrite a plat en 2 blocs repetes de meme volume
-  total) et 7 (SweetSpot+Aerobie ×2). Des versions anterieures de cet import
-  se basaient sur une lecture par arbre d'accessibilite qui ratait ces badges
-  de repetition et sous-evaluait le volume de travail qualite (notamment
-  l'allure marathon des semaines 9-11 et 13, et la seance du 18 octobre qui
-  n'etait qu'a moitie construite : le bloc de 40 min a allure marathon est en
-  realite repete 2 fois, pas une seule).
-- Seuil 60 des semaines 6 et 13 et Sortie Longue & Active generique de la
-  semaine 2 et 9 gardent un nombre de repetitions deduit du calcul de duree
-  totale plutot que verifie a l'ecran : ces seances n'ont qu'un seul type de
-  bloc repete possible, donc la solution est mathematiquement unique et
-  fiable meme sans verification visuelle.
+  Campus Coach a cote de chaque bloc), y compris : Khéops (pyramide ×2),
+  Force + Allure 42km des semaines 9/10/11, Long + Allure 42 km des semaines
+  13/15, Seuil 60 de la semaine 13 (structure completement differente d'une
+  estimation anterieure : 20 min EF + 3x7min@4:50 / 2:30 recup + 10 min EF),
+  SweetSpot (semaine 15), Allure 42 et Lignes droites (semaine 16), toutes
+  les "Séance intense facile", et les Sorties Longues & Actives des semaines
+  3 (Tempo+SweetSpot ×3), 5 (Tempo ×2), 6 (structure imbriquee ×2{×7}
+  retranscrite a plat en 2 blocs repetes de meme volume total), 7
+  (SweetSpot+Aerobie ×2), 9 (SweetSpot+Tempo ×5) et 10 (Tempo+SweetSpot ×3).
+  Des versions anterieures de cet import se basaient sur une lecture par
+  arbre d'accessibilite qui ratait ces badges de repetition et sous-evaluait
+  le volume de travail qualite (notamment l'allure marathon des semaines
+  9-11 et 13, et la seance du 18 octobre qui n'etait qu'a moitie construite :
+  le bloc de 40 min a allure marathon est en realite repete 2 fois).
+- Seuil 60 de la semaine 6 et Sortie Longue & Active generique des semaines
+  1-2 gardent un nombre de repetitions deduit du calcul de duree totale
+  plutot que verifie a l'ecran : ces seances n'ont qu'un seul type de bloc
+  repete possible, donc la solution est mathematiquement unique et fiable
+  meme sans verification visuelle.
 
 Usage :
     .venv/Scripts/python.exe -m scripts.import_marathon_16w            # exécute
@@ -412,11 +414,19 @@ WEEKS: list[list[dict]] = [
         ef(d(9, 4), "3/4", 45, 7.6, "6:04", "6:34"),
         {
             "date": d(9, 6), "name": "Sortie Longue & Active", "difficulty": 3, "num_label": "4/4",
-            "description": "Structure Tempo (non revalidee individuellement) : 75 min a 6:10-6:40/km + 25 min Tempo a 5:50/km + 10 min recup a 6:10-6:40/km.",
+            "description": (
+                "55 min a 6:10-6:40/km + 5 repetitions (confirme a l'ecran) de 2 min SweetSpot a 5:08/km "
+                "/ 5 min Tempo a 5:41/km / 2 min recup lente + 10 min recup a 6:10-6:40/km. Echauffement "
+                "de 55 min deduit du total (58 min etaient donnes dans le detail source pour ce segment, "
+                "incoherent avec le total de 1h50 par ailleurs confirme)."
+            ),
             "steps": [
-                step(1, StepType.warmup, label="Echauffement", minutes=75, pace_low="6:10", pace_high="6:40"),
-                step(2, StepType.interval, label="Tempo", minutes=25, pace_low="5:50"),
-                step(3, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:10", pace_high="6:40"),
+                step(1, StepType.warmup, label="Echauffement", minutes=55, pace_low="6:10", pace_high="6:40"),
+                repeat(2, 5),
+                step(3, StepType.interval, label="SweetSpot", minutes=2, pace_low="5:08", parent=2),
+                step(4, StepType.interval, label="Tempo", minutes=5, pace_low="5:41", parent=2),
+                step(5, StepType.recovery, label="Lent", minutes=2, parent=2),
+                step(6, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:10", pace_high="6:40"),
             ],
         },
     ],
@@ -444,12 +454,17 @@ WEEKS: list[list[dict]] = [
         ef(d(10, 4), "3/4", 45, 7.6, "6:04", "6:34"),
         {
             "date": d(10, 6), "name": "Sortie Longue & Active", "difficulty": 3, "num_label": "4/4",
-            "description": "EF + 10 min Tempo a 5:39/km + 4 min SweetSpot a 5:06/km + retour EF.",
+            "description": (
+                "1h EF a 6:08-6:38/km + 3 repetitions (confirme a l'ecran) de 10 min Tempo a 5:39/km "
+                "/ 4 min SweetSpot a 5:06/km / 3 min recup lente + 9 min recup a 6:08-6:38/km."
+            ),
             "steps": [
-                step(1, StepType.warmup, label="Echauffement", minutes=100, pace_low="6:08", pace_high="6:38"),
-                step(2, StepType.interval, label="Tempo", minutes=10, pace_low="5:39"),
-                step(3, StepType.interval, label="SweetSpot", minutes=4, pace_low="5:06"),
-                step(4, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:08", pace_high="6:38"),
+                step(1, StepType.warmup, label="Echauffement", minutes=60, pace_low="6:08", pace_high="6:38"),
+                repeat(2, 3),
+                step(3, StepType.interval, label="Tempo", minutes=10, pace_low="5:39", parent=2),
+                step(4, StepType.interval, label="SweetSpot", minutes=4, pace_low="5:06", parent=2),
+                step(5, StepType.recovery, label="Lent", minutes=3, parent=2),
+                step(6, StepType.cooldown, label="Recuperation", minutes=9, pace_low="6:08", pace_high="6:38"),
             ],
         },
     ],
@@ -518,16 +533,15 @@ WEEKS: list[list[dict]] = [
         {
             "date": d(13, 2), "name": "Seuil 60", "difficulty": 5, "num_label": "2/4",
             "description": (
-                "15 min EF + 8 repetitions de 3 min au seuil (~4:52-4:54/km, progression continue depuis "
-                "S5) / 1:30 recup lente + 5 min recup EF. Nombre de repetitions deduit de la duree totale "
-                "(58 min)."
+                "20 min a 6:04-6:34/km + 3 repetitions (confirme a l'ecran) de 7 min au seuil a 4:50/km "
+                "/ 2:30 recup lente + 10 min recup a 6:04-6:34/km."
             ),
             "steps": [
-                step(1, StepType.warmup, label="Echauffement", minutes=15, pace_low="6:04", pace_high="6:34"),
-                repeat(2, 8),
-                step(3, StepType.interval, label="Seuil 60", minutes=3, pace_low="4:53", parent=2),
-                step(4, StepType.recovery, label="Lent", seconds=90, parent=2),
-                step(5, StepType.cooldown, label="Recuperation", minutes=5, pace_low="6:04", pace_high="6:34"),
+                step(1, StepType.warmup, label="Echauffement", minutes=20, pace_low="6:04", pace_high="6:34"),
+                repeat(2, 3),
+                step(3, StepType.interval, label="Seuil 60", minutes=7, pace_low="4:50", parent=2),
+                step(4, StepType.recovery, label="Lent", seconds=150, parent=2),
+                step(5, StepType.cooldown, label="Recuperation", minutes=10, pace_low="6:04", pace_high="6:34"),
             ],
         },
         ef(d(13, 4), "3/4", 40, 6.9, "6:04", "6:34"),
