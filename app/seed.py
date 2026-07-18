@@ -56,13 +56,13 @@ def seed_users() -> None:
         ):
             print(f"[seed] Cree athlete={settings.athlete_email}")
 
-        # 2eme athlete optionnel : seede uniquement si LEA_EMAIL et LEA_PASSWORD sont definis
-        if settings.lea_email and settings.lea_password:
+        # 2eme athlete optionnel : seede uniquement si ATHLETE2_EMAIL et ATHLETE2_PASSWORD sont definis
+        if settings.athlete2_email and settings.athlete2_password:
             if _ensure_user(
                 db,
-                email=settings.lea_email,
-                name=settings.lea_name,
-                password=settings.lea_password,
+                email=settings.athlete2_email,
+                name=settings.athlete2_name,
+                password=settings.athlete2_password,
                 role=UserRole.athlete,
             ):
-                print(f"[seed] Cree athlete={settings.lea_email}")
+                print(f"[seed] Cree athlete={settings.athlete2_email}")

@@ -30,10 +30,10 @@ class Settings(BaseSettings):
     athlete_password: str = Field(default="changeme")
     athlete_name: str = Field(default="Athlete")
 
-    # 2eme athlete optionnel (Lea). Vide = non cree.
-    lea_email: str = Field(default="")
-    lea_password: str = Field(default="")
-    lea_name: str = Field(default="Lea")
+    # 2eme athlete optionnel. Vide = non cree.
+    athlete2_email: str = Field(default="")
+    athlete2_password: str = Field(default="")
+    athlete2_name: str = Field(default="Athlete 2")
 
     debug: bool = Field(default=True)
     # En production : True pour cookies https-only (Railway/Render servent en https)
