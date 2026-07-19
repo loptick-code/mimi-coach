@@ -75,8 +75,10 @@ class User(SQLModel, table=True):
     password_hash: str
     role: UserRole = Field(default=UserRole.athlete)
 
-    # Token SSO Garmin chiffre (Fernet) + nom du token (mobile/web)
-    # On stocke le dump JSON complet du client garminconnect (oauth1 + oauth2)
+    # Token SSO Garmin chiffre (Fernet) : dump JSON complet du client garminconnect
+    # (Client.dumps(), format lie a la version de la lib - voir garminconnect==X.Y.Z
+    # dans pyproject.toml/requirements.txt. Un changement de version peut rendre les
+    # tokens stockes illisibles ; il faut alors reconnecter le compte Garmin).
     garmin_token_encrypted: Optional[bytes] = Field(default=None)
     garmin_connected_name: Optional[str] = Field(
         default=None,
