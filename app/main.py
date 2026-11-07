@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from html import escape
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -119,10 +120,13 @@ def create_app() -> FastAPI:
             return JSONResponse({"error": "internal_server_error"}, status_code=500)
 
         title = "Oups, ça a planté"
-        msg = f"{type(exc).__name__}: {exc}"
+        # Ne pas exposer les détails d'une exception en production. En mode
+        # debug, échapper aussi le message et la trace avant leur insertion HTML.
+        msg = "Une erreur interne s'est produite."
         tb_html = ""
         if settings.debug:
-            tb = traceback.format_exc()
+            msg = escape(f"{type(exc).__name__}: {exc}")
+            tb = escape(traceback.format_exc())
             tb_html = (
                 f'<pre style="background:#f5f5f4;padding:1rem;border-radius:.5rem;'
                 f'overflow-x:auto;font-size:.75rem;color:#44403c;'

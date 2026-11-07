@@ -143,7 +143,7 @@ Pour ajouter de nouvelles séances : utilise l'interface admin (`/admin`) direct
 
 | Service | Free tier | Limite | Suffisant pour 2 users ? |
 |---|---|---|---|
-| **Vercel Hobby** | Illimité (100 GB bande passante) | Cold start ~1s, 30s timeout function, 250 MB max function | ✅ Largement |
+| **Vercel Hobby** | Illimité (100 GB bande passante) | Cold start ~1s, 300s max par fonction. Cette app est configurée à 30s dans `vercel.json` | ✅ Largement |
 | **Supabase Free** | 500 MB DB, 5 GB bande passante / mois | DB pause si pas d'activité 7 jours | ✅ Largement (notre DB ~1 MB) |
 
 **Tu paies 0€/mois** tant que tu restes dans ces limites.
@@ -160,9 +160,9 @@ Si l'app n'a pas été utilisée depuis ~10 min, la première requête prendra *
 
 Si **personne** n'utilise l'app pendant **7 jours**, Supabase met la DB en pause. La première requête ensuite la réveille (~30s). Pour éviter ça, ouvre l'app au moins une fois par semaine, ou upgrade en Pro (25$/mo) si ta copine utilise très peu.
 
-### ⚠️ Timeout 30s
+### ⚠️ Timeout configuré à 30s
 
-Le bouton "Exporter Garmin" peut prendre 5-10s à cause des retries anti-rate-limit. Sur Vercel free, le timeout est 10s par défaut, j'ai mis 30s dans `vercel.json`. Si Garmin rate-limite agressivement, le push peut échouer — la lib retentera au prochain clic.
+Le bouton "Exporter Garmin" peut prendre 5-10s à cause des retries anti-rate-limit. Le fichier `vercel.json` limite cette fonction à 30s. La documentation Vercel actuelle indique un maximum de 300s sur le plan Hobby, mais le plafond appliqué à cette app reste 30s. Si Garmin rate-limite agressivement ou si l'export dépasse 30s, le push peut échouer ; la lib retentera au prochain clic.
 
 ### ⚠️ API Garmin non-officielle
 
