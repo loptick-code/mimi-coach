@@ -1,4 +1,4 @@
-# Déployer Mimi Coach sur Vercel + Supabase (100% gratuit)
+# Déployer Mi Coach sur Vercel + Supabase (100% gratuit)
 
 Guide étape par étape pour déployer ton app et donner accès à ta copine.
 
@@ -11,7 +11,7 @@ Depuis ton terminal, dans `D:\Sport\App entrainement` :
 ```bash
 git init
 git add .
-git commit -m "Mimi Coach - initial deploy"
+git commit -m "Mi Coach - initial deploy"
 ```
 
 Le `.gitignore` exclut `data/`, `.env`, `.venv/` (les secrets et la DB locale ne partent pas).
@@ -86,7 +86,7 @@ Note les deux valeurs.
 
 6. **Deploy** — Vercel build le projet (~2-3 min)
 7. Une fois "Ready", tu obtiens une URL type `https://mimi-coach-xxx.vercel.app`
-8. Ouvre-la — tu devrais voir la page de login Mimi Coach 🎉
+8. Ouvre-la, tu devrais voir la page de login Mi Coach 🎉
 
 ## 6) Importer les séances Campus Coach en prod
 

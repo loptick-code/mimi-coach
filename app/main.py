@@ -57,7 +57,7 @@ async def lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Mimi Coach",
+        title="Mi Coach",
         debug=settings.debug,
         lifespan=lifespan,
     )
@@ -90,7 +90,7 @@ def create_app() -> FastAPI:
         if exc.status_code == 401:
             if is_html:
                 return RedirectResponse(url="/login", status_code=303)
-        # 404 -> page sympa avec ref Jul
+        # 404 -> page personnalisée
         if exc.status_code == 404 and is_html:
             from app.templates import templates
             return templates.TemplateResponse(

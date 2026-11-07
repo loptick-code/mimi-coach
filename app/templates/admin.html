@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, lyric_tag %}
-{% block title %}Coach - Mimi Coach{% endblock %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill %}
+{% block title %}Coach - Mi Coach{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -22,7 +22,7 @@
     </span>
     <h1 class="display-xl" style="margin-top: 10px;">
       Programme<br/>
-      <span style="color: var(--accent);">de {{ (athlete.name or 'Mimi').split(' ')[0] }}.</span>
+      {% if athlete.name %}<span style="color: var(--accent);">de {{ athlete.name.split(' ')[0] }}.</span>{% endif %}
     </h1>
     <p style="font-size: 13px; color: var(--ink-muted); margin-top: 8px;">{{ total_sessions }} séances programmées</p>
   </div>
@@ -138,6 +138,5 @@
     </div>
   </div>
 
-  {% if not is_athlete2(user) %}<div style="text-align: center; margin-top: 24px;">{{ lyric_tag() }}</div>{% endif %}
 </div>
 {% endblock %}

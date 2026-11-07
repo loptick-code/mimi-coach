@@ -1,4 +1,4 @@
-# Mini Coach — App d'entraînement running avec export Garmin
+# Mi Coach — App d'entraînement running avec export Garmin
 
 Mini app type Campus Coach pour 2 utilisateurs (toi = coach, ta copine = athlète).
 Permet de programmer des séances de course à pied par semaine et de **les

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline_dark, lyric_tag %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline_dark %}
 {% block title %}{{ session.name }}{% endblock %}
 
 {% macro render_step(s, adj_pct=0) %}
@@ -317,7 +317,6 @@
     {% endif %}
   </div>
 
-  {% if not is_athlete2(user) %}<div style="text-align: center; margin-top: 24px;">{{ lyric_tag() }}</div>{% endif %}
 </div>
 
 <style>

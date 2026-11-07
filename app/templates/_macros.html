@@ -1,15 +1,15 @@
-{# Composants reutilisables — Mimi Coach (design Campus Coach × Mimi) #}
+{# Composants reutilisables — Mi Coach (design inspire de Campus Coach) #}
 
-{# === Logo Heart-Bolt v2 + wordmark MIMI/COACH (MI/COACH pour le 2eme athlete) === #}
-{% macro app_logo(size=22, with_text=True, color='var(--ink)', user=None, short=False) %}
+{# === Logo Heart-Bolt + wordmark Mi Coach === #}
+{% macro app_logo(size=22, with_text=True, color='var(--ink)') %}
   <span class="inline-flex items-center" style="gap: 8px; color: {{ color }};">
     <svg width="{{ size + 2 }}" height="{{ size + 2 }}" viewBox="0 0 32 32" fill="none">
       <path d="M16 28S4 20 4 12a6 6 0 0 1 12-2 6 6 0 0 1 12 2c0 8-12 16-12 16Z" fill="currentColor" />
       <path d="M17 12l-3.5 5.5h2.5l-0.5 4 4-5.5h-2.5l0.5-4z" fill="var(--accent)" />
     </svg>
     {% if with_text %}
-      <span class="font-display" style="font-weight: 800; font-size: {{ (size * 0.72) | round | int }}px; letter-spacing: -0.02em; text-transform: uppercase; line-height: 1;">
-        {{ 'MI' if (short or is_athlete2(user)) else 'MIMI' }}<span style="color: var(--accent);">/</span>COACH
+      <span class="font-display" style="font-weight: 800; font-size: {{ (size * 0.72) | round | int }}px; letter-spacing: -0.02em; line-height: 1;">
+        Mi <span style="color: var(--accent);">Coach</span>
       </span>
     {% endif %}
   </span>
@@ -99,23 +99,6 @@
       Allures {{ sign }}{{ pct | round(1) }}%
     </span>
   {% endif %}
-{% endmacro %}
-
-
-{# === Lyric tag (footer + flairs) === #}
-{% macro lyric_tag(inline=False) %}
-  {% set _lyrics = [
-    "Elle m'dit que j'suis mimi",
-    "Moi, j't'aime a l'infini",
-    "Ca sera jamais fini",
-    "Y en a pas deux comme toi",
-    "On s'aime comme des fous",
-    "Amore mio, j'aime que toi",
-  ] %}
-  <span class="{{ 'lyric-tag-inline' if inline else 'lyric-tag' }}">
-    <span style="font-size: 9px;">♫</span>
-    <span>« {{ _lyrics | random }} »</span>
-  </span>
 {% endmacro %}
 
 
