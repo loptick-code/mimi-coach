@@ -98,6 +98,34 @@ class User(SQLModel, table=True):
         back_populates="athlete",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    training_profile: Optional["TrainingProfile"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
+    )
+
+
+class TrainingProfile(SQLModel, table=True):
+    """Profil d'entraînement propre à un compte.
+
+    Les nouvelles données sont dans une table séparée afin que create_all puisse
+    l'ajouter sans modifier les tables existantes ni leurs données.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", unique=True, index=True)
+    goal: str = Field(default="10k")  # 10k | half | marathon
+    race_date: Optional[_dt.date] = Field(default=None)
+    experience: str = Field(default="regular")  # beginner | returning | regular
+    current_runs_per_week: int = Field(default=3, ge=0, le=7)
+    longest_run_km: Optional[float] = Field(default=None, ge=0, le=100)
+    sessions_per_week: int = Field(default=4, ge=3, le=4)
+    available_days: str = Field(default="")  # liste CSV des jours autorisés
+    ef_fast_sec_per_km: Optional[int] = Field(default=None, ge=1)
+    ef_slow_sec_per_km: Optional[int] = Field(default=None, ge=1)
+    pace_targets_json: str = Field(default="{}")
+    manual_paces_json: str = Field(default="[]")
+
+    user: Optional[User] = Relationship(back_populates="training_profile")
 
 
 class Session(SQLModel, table=True):

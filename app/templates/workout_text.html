@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Décrire un programme - Mi Coach{% endblock %}
+{% block content %}
+<div class="px-4 sm:px-5 pt-4 pb-12"><div class="max-w-2xl mx-auto">
+  <a href="/" class="btn btn-ghost btn-sm" style="margin-bottom:14px;">← Retour</a>
+  <span class="pill pill-accent">Import de séances</span>
+  <h1 class="display-l" style="margin-top:10px;">Décris ton programme</h1>
+  <p style="font-size:13px;color:var(--ink-muted);line-height:1.55;margin-top:8px;">Mi Coach lit une syntaxe guidée, sans envoyer ton texte à une IA. Il affiche les séances reconnues avant de les enregistrer.</p>
+
+  {% if error %}<div class="card card-pad" role="alert" style="border-color:#ef4444;color:#991b1b;margin:14px 0;">{{ error }}</div>{% endif %}
+  <div class="card card-pad" style="margin-top:14px;">
+    <div class="flex justify-between" style="gap:10px;flex-wrap:wrap;">
+      <strong>Ton profil</strong>
+      <a href="/settings/entrainement" style="font-size:12px;text-decoration:underline;">Modifier mes allures</a>
+    </div>
+    <p style="font-size:12px;color:var(--ink-muted);margin-top:5px;">Objectif : {{ {'10k':'10 km','half':'semi-marathon','marathon':'marathon'}[profile.goal] }} · {{ profile.sessions_per_week }} séances/semaine{% if profile.ef_fast and profile.ef_slow %} · EF {{ profile.ef_fast }}–{{ profile.ef_slow }}/km{% endif %}</p>
+    {% if profile.sessions_per_week == 3 %}<p style="font-size:11px;color:#92400e;margin-top:6px;">Si une semaine contient 4 séances, la 3e sera retirée automatiquement, y compris la semaine de course.</p>{% endif %}
+  </div>
+
+  <div class="card card-pad" style="margin-top:14px;">
+    <h2 class="section-title">Format accepté</h2>
+    <ul style="font-size:12px;color:var(--ink-muted);line-height:1.7;margin:10px 0 0 18px;list-style:disc;">
+      <li>Une ligne par séance, précédée d'un jour : <code>Lundi : 40 min EF</code>.</li>
+      <li>Une semaine commence par <code>Semaine 1</code>.</li>
+      <li>Tu peux numéroter les séances, par exemple <code>Séance 3 (samedi) : 40 min EF</code>. En mode 3 séances, une séance n° 3 explicitement indiquée est retirée, même s'il n'y a que trois séances renseignées. Sans numéros, la 3e ligne est retirée si 4 séances sont saisies.</li>
+      <li>Étapes séparées par <code>+</code>. Durées en secondes, minutes ou heures, distances en mètres ou kilomètres.</li>
+      <li>Répétitions entre parenthèses : <code>6 x (3 min S60 + 1 min 30 récupération)</code>.</li>
+      <li>Allures reconnues : EF, S60, S30, VMA, tempo, sweet spot, aérobie, allure 10 km/semi/marathon. Les allures du profil sont utilisées, ou indique une allure précise comme <code>4:30/km</code>.</li>
+      <li>Pour les sprints aux sensations, écris <code>15 s rapide</code>. Une étape ambiguë bloque l'import au lieu d'être devinée.</li>
+    </ul>
+  </div>
+
+  <form method="post" action="/programme/texte/apercu" class="card card-pad flex flex-col" style="gap:12px;margin-top:14px;">
+    <label><span class="field-label">Date du lundi de la première semaine</span><input type="date" name="start_date" value="{{ start_date }}" required class="input" /></label>
+    <label>
+      <span class="field-label">Séances à importer</span>
+      <textarea name="program_text" rows="14" required class="input" style="resize:vertical;font-family:ui-monospace,monospace;font-size:12px;line-height:1.6;" placeholder="Semaine 1&#10;Lundi : 40 min EF&#10;Mercredi : 15 min échauffement + 6 x (3 min S60 + 1 min 30 récupération) + 10 min retour au calme&#10;Samedi : 60 min EF&#10;Dimanche : 20 min EF + 20 min tempo + 10 min EF">{{ text }}</textarea>
+    </label>
+    <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Analyser et voir l'aperçu</button>
+  </form>
+</div></div>
+{% endblock %}

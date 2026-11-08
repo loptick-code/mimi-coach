@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ "Mon profil d'entraînement" if settings_mode else "Configurer mon entraînement" }} - Mi Coach{% endblock %}
+{% block content %}
+<div class="px-4 sm:px-5 pt-4 pb-12">
+  <div class="max-w-2xl mx-auto">
+    <div class="flex items-center justify-between" style="gap:12px; margin-bottom:18px;">
+      <div>
+        <span class="pill pill-accent">Profil running</span>
+        <h1 class="display-l" style="margin-top:10px;">{{ "Mes paramètres" if settings_mode else "On prépare ton plan" }}</h1>
+        <p style="font-size:13px;color:var(--ink-muted);margin-top:8px;line-height:1.5;">
+          {{ "Tes allures restent modifiables ici." if settings_mode else "Quelques repères pour adapter l'entraînement à ton objectif et à ton rythme." }}
+        </p>
+      </div>
+    </div>
+
+    {% if saved %}<div class="card-success card-pad" style="margin-bottom:14px;">Profil enregistré. Les allures calculées ont été mises à jour, sans écraser tes allures personnalisées.</div>{% endif %}
+    {% if error %}<div class="card card-pad" role="alert" style="border-color:#ef4444;color:#991b1b;margin-bottom:14px;">{{ error }}</div>{% endif %}
+
+    <form method="post" action="{{ '/settings/entrainement' if settings_mode else '/onboarding/preview' }}" class="flex flex-col" style="gap:14px;">
+      <section class="card card-pad flex flex-col" style="gap:14px;">
+        <h2 class="section-title">Objectif</h2>
+        <label>
+          <span class="field-label">Course visée</span>
+          <select name="goal" class="input" required>
+            {% for key, label in goal_labels.items() %}<option value="{{ key }}" {% if profile.goal == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>
+          <span class="field-label">Date de course <span style="text-transform:none;font-weight:500;">(facultatif)</span></span>
+          <input type="date" name="race_date" value="{{ profile.race_date }}" class="input" />
+        </label>
+      </section>
+
+      <section class="card card-pad flex flex-col" style="gap:14px;">
+        <h2 class="section-title">Ta base actuelle</h2>
+        <label>
+          <span class="field-label">Où en es-tu dans ta pratique ?</span>
+          <select name="experience" class="input" required>
+            <option value="beginner" {% if profile.experience == 'beginner' %}selected{% endif %}>Je débute ou je cours peu</option>
+            <option value="returning" {% if profile.experience == 'returning' %}selected{% endif %}>Je reprends après une pause</option>
+            <option value="regular" {% if profile.experience == 'regular' %}selected{% endif %}>Je cours régulièrement</option>
+          </select>
+        </label>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">
+          <label>
+            <span class="field-label">Sorties par semaine actuellement</span>
+            <input type="number" min="0" max="7" name="current_runs_per_week" value="{{ profile.current_runs_per_week }}" class="input" required />
+          </label>
+          <label>
+            <span class="field-label">Sortie la plus longue récente (km)</span>
+            <input type="number" min="0" max="100" step="0.1" name="longest_run_km" value="{{ profile.longest_run_km }}" placeholder="Facultatif" class="input" />
+          </label>
+        </div>
+      </section>
+
+      <section class="card card-pad flex flex-col" style="gap:14px;">
+        <h2 class="section-title">Disponibilité</h2>
+        <div>
+          <span class="field-label">Séances par semaine</span>
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;">
+            {% for count in [3, 4] %}
+            <label style="display:block;cursor:pointer;">
+              <input type="radio" name="sessions_per_week" value="{{ count }}" {% if profile.sessions_per_week == count %}checked{% endif %} required />
+              <span style="font-weight:700;">{{ count }} séances</span>
+            </label>
+            {% endfor %}
+          </div>
+          <p style="font-size:11px;color:var(--ink-muted);margin-top:6px;">En version 3 séances, la séance n° 3 du programme est retirée, y compris la semaine de course. Dans un texte non numéroté, la troisième ligne est retirée si 4 séances sont décrites.</p>
+        </div>
+        <fieldset>
+          <legend class="field-label">Jours possibles <span style="text-transform:none;font-weight:500;">(facultatif)</span></legend>
+          <div class="grid" style="grid-template-columns:repeat(2,1fr);gap:7px;">
+            {% for key, label in days %}
+            <label style="font-size:13px;display:flex;align-items:center;gap:7px;">
+              <input type="checkbox" name="available_days" value="{{ key }}" {% if key in profile.available_days %}checked{% endif %} />{{ label }}
+            </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="card card-pad flex flex-col" style="gap:12px;">
+        <h2 class="section-title">Plage d'endurance fondamentale</h2>
+        <p style="font-size:12px;color:var(--ink-muted);line-height:1.5;">Saisis ta plage EF habituelle en min/km. La borne rapide doit être 30 secondes plus rapide que la borne lente. Si tu ne connais pas encore ton EF, laisse les champs vides, tu pourras saisir les autres allures manuellement.</p>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">
+          <label><span class="field-label">Borne rapide (min/km)</span><input type="text" name="ef_fast" value="{{ profile.ef_fast }}" placeholder="5:00" class="input" inputmode="numeric" /></label>
+          <label><span class="field-label">Borne lente (min/km)</span><input type="text" name="ef_slow" value="{{ profile.ef_slow }}" placeholder="5:30" class="input" inputmode="numeric" /></label>
+        </div>
+      </section>
+
+      {% if settings_mode %}
+      <section class="card card-pad flex flex-col" style="gap:12px;">
+        <div>
+          <h2 class="section-title">Mes allures</h2>
+          <p style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Les valeurs automatiques sont recalculées depuis le milieu de ta plage EF. Coche « personnalisée » pour conserver une allure choisie manuellement.</p>
+        </div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">
+          {% for pace in pace_rows %}
+          <label>
+            <span class="field-label">{{ pace.label }}</span>
+            <input type="text" name="pace_{{ pace.key }}" value="{{ pace.value }}" placeholder="{{ 'À saisir' if profile.goal == 'marathon' and not pace.value else '4:30' }}" class="input pace-value" inputmode="numeric" data-key="{{ pace.key }}" />
+            <span style="font-size:10px;color:var(--ink-muted);display:flex;align-items:center;gap:5px;margin-top:4px;">
+              <input type="checkbox" name="manual_{{ pace.key }}" value="1" class="manual-pace" data-key="{{ pace.key }}" {% if pace.manual %}checked{% endif %} />Personnalisée
+              {% if pace.value and not pace.manual %}<span>· calculée</span>{% endif %}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+        {% if profile.goal == 'marathon' %}<p style="font-size:11px;color:#92400e;">Les allures marathon automatiques ne sont pas activées tant que la référence du plan source n'est pas validée. Tu peux les saisir ici manuellement.</p>{% endif %}
+        <label style="font-size:12px;display:flex;align-items:center;gap:7px;margin-top:4px;">
+          <input type="checkbox" name="reset_auto_paces" value="1" />Réinitialiser les allures personnalisées vers les valeurs calculées disponibles
+        </label>
+      </section>
+      {% endif %}
+
+      <div class="flex" style="gap:8px;">
+        <a href="/" class="btn btn-ghost">Annuler</a>
+        <button type="submit" class="btn btn-primary" style="flex:1;">{{ 'Enregistrer mon profil' if settings_mode else 'Voir le récapitulatif' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% if settings_mode %}
+<script>
+  document.querySelectorAll('.pace-value').forEach((input) => {
+    input.addEventListener('input', () => {
+      const key = input.dataset.key;
+      const checkbox = document.querySelector(`.manual-pace[data-key="${key}"]`);
+      if (checkbox) checkbox.checked = true;
+    });
+  });
+</script>
+{% endif %}
+{% endblock %}

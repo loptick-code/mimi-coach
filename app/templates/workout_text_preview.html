@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Aperçu du programme - Mi Coach{% endblock %}
+{% block content %}
+<div class="px-4 sm:px-5 pt-4 pb-12"><div class="max-w-2xl mx-auto">
+  <a href="/programme/texte" class="btn btn-ghost btn-sm" style="margin-bottom:14px;">← Nouvelle saisie</a>
+  <span class="pill pill-accent">Aperçu avant enregistrement</span>
+  <h1 class="display-l" style="margin-top:10px;">Vérifie tes séances</h1>
+  <p style="font-size:12px;color:var(--ink-muted);margin-top:8px;">Rien n'est enregistré avant ta confirmation. Les séances seront ajoutées uniquement à ton compte.</p>
+
+  {% if error %}<div class="card card-pad" role="alert" style="margin-top:14px;border-color:#ef4444;color:#991b1b;">{{ error }}</div>{% endif %}
+  {% if warnings %}<div class="card card-pad" style="margin-top:14px;border-color:#f59e0b;color:#92400e;"><strong>À vérifier</strong><ul style="margin:6px 0 0 18px;list-style:disc;">{% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if omitted_rows %}<div class="card card-pad" style="margin-top:14px;border-color:#f59e0b;color:#92400e;"><strong>Séances retirées en mode 3 sorties/semaine</strong><ul style="margin:6px 0 0 18px;list-style:disc;">{% for item in omitted_rows %}<li>Semaine {{ item.week_number }}, {{ item.weekday_label }} : {{ item.name }}</li>{% endfor %}</ul></div>{% endif %}
+
+  <div class="flex flex-col" style="gap:10px;margin-top:14px;">
+    {% for row in rows %}
+    <article class="card card-pad">
+      <div class="flex justify-between" style="gap:10px;align-items:start;">
+        <div><span class="pill pill-stone">Semaine {{ row.week_number }}</span><h2 style="font-size:15px;font-weight:800;margin-top:7px;">{{ row.weekday_label|capitalize }} {{ row.date.strftime('%d/%m/%Y') }} · {{ row.name }}</h2></div>
+      </div>
+      <ol style="font-size:12px;color:var(--ink-muted);line-height:1.65;margin:8px 0 0 18px;list-style:decimal;">{% for step in row.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+    </article>
+    {% endfor %}
+  </div>
+
+  <form method="post" action="/programme/texte/apercu" class="card card-pad flex flex-col" style="gap:8px;margin-top:14px;">
+    <label><span class="field-label">Lundi de départ</span><input type="date" name="start_date" value="{{ start_date }}" class="input" /></label>
+    <label><span class="field-label">Modifier le texte, puis recalculer l'aperçu</span><textarea name="program_text" rows="8" class="input" style="font-family:ui-monospace,monospace;font-size:12px;">{{ text }}</textarea></label>
+    <button class="btn btn-ghost" type="submit">Recalculer l'aperçu</button>
+  </form>
+
+  {% if can_confirm and not warnings %}
+  <form method="post" action="/programme/texte/confirmer" style="margin-top:12px;">
+    <textarea name="program_text" hidden>{{ text }}</textarea>
+    <input type="hidden" name="start_date" value="{{ start_date }}" />
+    <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Confirmer et ajouter {{ rows|length }} séance{{ 's' if rows|length != 1 else '' }}</button>
+  </form>
+  {% elif can_confirm %}
+  <p style="font-size:12px;color:var(--ink-muted);margin-top:12px;">Corrige les avertissements ou confirme seulement si tu acceptes cette organisation.</p>
+  <form method="post" action="/programme/texte/confirmer" style="margin-top:8px;">
+    <textarea name="program_text" hidden>{{ text }}</textarea><input type="hidden" name="start_date" value="{{ start_date }}" />
+    <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Confirmer malgré les avertissements</button>
+  </form>
+  {% endif %}
+</div></div>
+{% endblock %}

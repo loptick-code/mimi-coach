@@ -21,6 +21,7 @@ from app.models import (
     Step,
     StepType,
     TargetType,
+    TrainingProfile,
     User,
 )
 from app.services import garmin_client
@@ -49,6 +50,12 @@ async def home(
     db: DBSession = Depends(get_session),
 ):
     """Vue 'Cette semaine' (par defaut) - liste des seances."""
+    profile = db.exec(
+        select(TrainingProfile).where(TrainingProfile.user_id == user.id)
+    ).first()
+    if profile is None:
+        return RedirectResponse(url="/onboarding", status_code=303)
+
     today = date.today()
     if week:
         try:
