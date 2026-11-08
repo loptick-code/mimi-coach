@@ -155,9 +155,7 @@
         <p style="font-size: 13px; color: var(--ink-muted); max-width: 280px; margin: 0 auto;">
           Aucune séance prévue cette semaine. Profite de te reposer.
         </p>
-        {% if user.role.value == 'coach' or user.role == 'coach' %}
-          <a href="/admin/sessions/new" class="btn btn-primary" style="margin-top: 18px;">+ Nouvelle séance</a>
-        {% endif %}
+        <a href="/admin/sessions/new" class="btn btn-primary" style="margin-top: 18px;">+ Nouvelle séance</a>
       </div>
     {% endfor %}
   </div>

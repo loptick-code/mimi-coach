@@ -1,10 +1,9 @@
 # Mi Coach — App d'entraînement running avec export Garmin
 
-Mini app type Campus Coach pour 2 utilisateurs (toi = coach, ta copine = athlète).
-Permet de programmer des séances de course à pied par semaine et de **les
-exporter en un clic vers le compte Garmin Connect** de l'athlète. La séance
-arrive directement dans la liste des entraînements de Garmin Connect et se
-synchronise sur la montre.
+Application de course à pied pour plusieurs comptes. Chaque personne a les
+mêmes droits, gère ses propres séances et connecte son propre compte Garmin.
+Les séances peuvent être **exportées en un clic vers Garmin Connect**, puis
+synchronisées sur la montre.
 
 ## Stack
 
@@ -50,11 +49,12 @@ Copie `.env.example` en `.env` et génère les secrets :
 ```
 FERNET_KEY=<la clé Fernet générée>
 SESSION_SECRET=<le secret de session>
-COACH_EMAIL=valentin@example.com
-COACH_PASSWORD=<un mot de passe pour toi>
-ATHLETE_EMAIL=copine@example.com
-ATHLETE_PASSWORD=<un mot de passe pour elle>
-ATHLETE_NAME=Ma copine
+COACH_EMAIL=personne1@example.com
+COACH_PASSWORD=<mot de passe du premier compte>
+COACH_NAME=Compte principal
+ATHLETE_EMAIL=personne2@example.com
+ATHLETE_PASSWORD=<mot de passe du deuxième compte>
+ATHLETE_NAME=Athlète 1
 ```
 
 ### 4) Lancer le serveur
@@ -63,13 +63,13 @@ ATHLETE_NAME=Ma copine
 .venv/Scripts/python.exe -m uvicorn app.main:app --reload
 ```
 
-Ouvre <http://127.0.0.1:8000>. Connecte-toi avec `COACH_EMAIL` / `COACH_PASSWORD`.
+Ouvre <http://127.0.0.1:8000>. Connecte-toi avec l'un des comptes configurés.
 
 ### 5) Workflow
 
-1. **Toi (coach)** : `/admin/sessions/new` → crée une séance avec ses étapes
-2. **Toi (1ère fois)** : `/settings/garmin` → connecte le compte Garmin de ta copine (email + mdp Garmin une fois ; seul un token chiffré est stocké)
-3. **Ta copine** : se connecte avec ses identifiants → voit `/` (la semaine courante) → clique sur une séance → bouton **"Exporter vers Garmin"** → la séance apparait dans son Garmin Connect → elle synchronise sa montre
+1. **Chaque personne** : ouvre `Programme` pour créer et modifier ses propres séances.
+2. **Chaque personne** : ouvre `/settings/garmin` pour connecter son compte Garmin. Seul un token chiffré est stocké.
+3. **Chaque personne** : consulte sa semaine, choisit une séance, puis clique sur **"Exporter vers Garmin"** pour l'envoyer à son compte Garmin Connect.
 
 ## Structure du projet
 
@@ -80,7 +80,7 @@ app/
 ├── db.py / models.py        # SQLModel + SQLite
 ├── auth.py                  # Login + sessions cookie
 ├── crypto.py                # Fernet pour les tokens Garmin
-├── seed.py                  # Crée les 2 users au 1er démarrage
+├── seed.py                  # Crée les comptes configurés avec les mêmes droits
 ├── templates.py             # Jinja2 + filtres custom (pace, etc.)
 ├── routes/
 │   ├── auth.py              # /login /logout
@@ -93,6 +93,8 @@ app/
 └── templates/               # base, login, week, session_detail, session_form, admin, settings_garmin
 tests/
 └── test_workout_builder.py  # 11 tests sur la conversion Session->Workout
+scripts/
+└── reset_all_data.py        # Reset manuel avec aperçu et confirmation explicite
 ```
 
 ## Tests
@@ -101,22 +103,25 @@ tests/
 .venv/Scripts/python.exe -m pytest -q
 ```
 
-## Déploiement Railway
+## Déploiement Vercel + Supabase
 
-Railway détecte automatiquement la stack Python via `pyproject.toml` + le
-`Procfile` / `railway.json`. Variables d'env à définir côté Railway :
+Le guide complet est dans [`DEPLOY.md`](DEPLOY.md). Variables à configurer côté
+Vercel :
 
 | Variable | Description |
 |---|---|
 | `FERNET_KEY` | Clé Fernet (génère-la une fois et garde-la) |
 | `SESSION_SECRET` | Secret pour signer les cookies de session |
 | `DATABASE_URL` | SQLite par défaut. Pour Postgres : `postgresql://...` (et installer `psycopg`) |
-| `COACH_EMAIL` / `COACH_PASSWORD` | Tes credentials |
-| `ATHLETE_EMAIL` / `ATHLETE_PASSWORD` | Credentials de ta copine |
-| `ATHLETE_NAME` | Affichage UI |
+| `DEBUG` | `false` en production |
+| `HTTPS_ONLY_COOKIES` | `true` en production |
+| `COACH_EMAIL` / `COACH_PASSWORD` | Identifiants du premier compte, mêmes droits que les autres |
+| `COACH_NAME` | Nom affiché pour le premier compte |
+| `ATHLETE_EMAIL` / `ATHLETE_PASSWORD` | Identifiants du deuxième compte, mêmes droits |
+| `ATHLETE_NAME` | Nom affiché pour le deuxième compte |
 
-⚠️ Si tu utilises SQLite sur Railway, monte un volume persistant sur `data/`
-sinon la DB est wipe à chaque redéploiement.
+Les comptes configurés ont les mêmes droits. Chaque personne gère ses propres
+séances et sa connexion Garmin.
 
 ## Calque Campus Coach
 
@@ -134,7 +139,7 @@ sinon la DB est wipe à chaque redéploiement.
 ### Pourquoi `python-garminconnect` et pas l'API officielle ?
 
 L'API officielle Garmin Connect Developer Program (Training API) requiert
-une approbation business. Pour un usage perso à 2 users, ça ne passe pas.
+une approbation business. Pour un usage personnel en petit groupe, ça ne passe pas.
 `python-garminconnect` ré-implémente le flow d'auth mobile et expose
 `upload_running_workout(workout)` qui pousse une séance dans le calendrier
 Garmin Connect comme si l'app mobile l'avait fait. La séance se synchronise
@@ -158,8 +163,8 @@ le payload Garmin Connect au cas où.
 ## TODO / améliorations possibles
 
 - [ ] OAuth Garmin Connect Developer Program (officiel) si on veut pérenniser
-- [ ] Multi-utilisateurs (plusieurs athlètes pour un coach)
+- [ ] Plusieurs programmes par compte
 - [ ] Modèles de séances réutilisables ("Séance VMA classique")
-- [ ] Partage de plans (un coach pour plusieurs copines de copines 😉)
+- [ ] Partage de programmes entre comptes
 - [ ] Vraie gen .FIT via `fit-tool` pour fallback fonctionnel
 - [ ] Support 2FA Garmin
