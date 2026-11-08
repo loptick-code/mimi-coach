@@ -10,7 +10,7 @@ from sqlmodel import Session as DBSession
 from sqlmodel import select
 
 from app.db import get_session
-from app.models import User, UserRole
+from app.models import User
 
 
 def _truncate(password: str) -> bytes:
@@ -55,9 +55,4 @@ def require_user(
             detail="Pas connecte",
             headers={"Location": "/login"},
         )
-    return user
-
-
-def require_coach(user: User = Depends(require_user)) -> User:
-    # App 2 users (coach + athlete) : les deux ont droits d'edition.
     return user

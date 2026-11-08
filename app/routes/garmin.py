@@ -7,31 +7,16 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlmodel import Session as DBSession
-from sqlmodel import select
 
 from app.auth import require_user
 from app.db import get_session
-from app.models import Session, SessionFeedback, User, UserRole
+from app.models import Session, SessionFeedback, User
 from app.services import garmin_client
 from app.services.fit_export import session_to_workout_json
 from app.services.workout_builder import session_to_running_workout
 from app.templates import templates
 
 router = APIRouter()
-
-
-def _garmin_owner(viewer: User, db: DBSession) -> User:
-    """Le compte Garmin est toujours celui de l'athlete (ou du viewer si athlete).
-
-    Raison : c'est sa montre et son Garmin Connect ou les seances doivent
-    arriver. Le coach configure simplement Garmin pour son athlete.
-    """
-    if viewer.role == UserRole.athlete:
-        return viewer
-    athlete = db.exec(
-        select(User).where(User.role == UserRole.athlete).order_by(User.id)
-    ).first()
-    return athlete or viewer
 
 
 # --- Onboarding Garmin (lien du compte) ---
@@ -45,7 +30,7 @@ async def settings_garmin_page(
     error: str | None = None,
     success: str | None = None,
 ):
-    target = _garmin_owner(user, db)
+    target = user
     return templates.TemplateResponse(
         request,
         "settings_garmin.html",
@@ -66,7 +51,7 @@ async def settings_garmin_connect(
     user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
-    target = _garmin_owner(user, db)
+    target = user
     try:
         result = garmin_client.login_with_credentials(email, password)
     except garmin_client.GarminMFARequired as exc:
@@ -96,7 +81,7 @@ async def settings_garmin_disconnect(
     user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
-    target = _garmin_owner(user, db)
+    target = user
     target.garmin_token_encrypted = None
     target.garmin_connected_name = None
     db.add(target)
@@ -117,8 +102,8 @@ async def export_session(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     athlete = db.get(User, s.athlete_id)
     if athlete is None or not athlete.garmin_token_encrypted:
@@ -177,8 +162,8 @@ async def export_session_json(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     payload = session_to_workout_json(s)
     safe_name = "".join(c for c in s.name if c.isalnum() or c in "-_") or "seance"

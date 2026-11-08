@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline, lyric_tag %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline %}
 {% block title %}{{ "Cette semaine" if is_current_week else monday.strftime("%d %b") + " - " + sunday.strftime("%d %b") }}{% endblock %}
 
 {% block content %}
@@ -26,8 +26,12 @@
       {% endif %}
     </div>
     <h1 class="display-xxl">
-      Ta semaine,<br/>
-      <span style="color: var(--accent);">{{ (athlete.name or 'Mimi').split(' ')[0] }}.</span>
+      {% if athlete.name %}
+        Ta semaine,<br/>
+        <span style="color: var(--accent);">{{ athlete.name.split(' ')[0] }}.</span>
+      {% else %}
+        Ta semaine.
+      {% endif %}
     </h1>
     {% if athlete.pace_adjustment_pct %}
       <div class="flex items-center" style="margin-top: 14px; gap: 8px; font-size: 12px; color: var(--ink-muted);">
@@ -151,13 +155,10 @@
         <p style="font-size: 13px; color: var(--ink-muted); max-width: 280px; margin: 0 auto;">
           Aucune séance prévue cette semaine. Profite de te reposer.
         </p>
-        {% if user.role.value == 'coach' or user.role == 'coach' %}
-          <a href="/admin/sessions/new" class="btn btn-primary" style="margin-top: 18px;">+ Nouvelle séance</a>
-        {% endif %}
+        <a href="/admin/sessions/new" class="btn btn-primary" style="margin-top: 18px;">+ Nouvelle séance</a>
       </div>
     {% endfor %}
   </div>
 
-  {% if not is_athlete2(user) %}<div style="text-align: center; margin-top: 24px;">{{ lyric_tag() }}</div>{% endif %}
 </div>
 {% endblock %}

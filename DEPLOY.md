@@ -1,6 +1,6 @@
-# Déployer Mimi Coach sur Vercel + Supabase (100% gratuit)
+# Déployer Mi Coach sur Vercel + Supabase (100% gratuit)
 
-Guide étape par étape pour déployer ton app et donner accès à ta copine.
+Guide étape par étape pour déployer l'application et configurer plusieurs comptes aux mêmes droits.
 
 ---
 
@@ -11,16 +11,16 @@ Depuis ton terminal, dans `D:\Sport\App entrainement` :
 ```bash
 git init
 git add .
-git commit -m "Mimi Coach - initial deploy"
+git commit -m "Mi Coach - initial deploy"
 ```
 
 Le `.gitignore` exclut `data/`, `.env`, `.venv/` (les secrets et la DB locale ne partent pas).
 
-## 2) Pousser sur GitHub (repo privé)
+## 2) Pousser sur GitHub
 
 1. Va sur https://github.com/new
 2. **Nom** : `mimi-coach`
-3. ⚠️ **Privé** (important : il y a la logique de ton plan d'entrainement)
+3. Choisis la visibilité du dépôt. Un dépôt public expose son code et tout son historique à tout le monde. Ne committe jamais de secrets ni de données personnelles.
 4. Crée le repo
 5. Suis les instructions GitHub :
 
@@ -36,7 +36,7 @@ git push -u origin main
 2. **New Project** :
    - **Name** : `mimi-coach`
    - **Database password** : génère un mdp fort (note-le quelque part, tu vas en avoir besoin)
-   - **Region** : `Europe (Frankfurt)` ou `France` (le plus proche de ta copine)
+   - **Region** : `Europe (Frankfurt)` ou `France` (la plus proche de toi)
    - **Plan** : Free
 3. Attends ~2 min que le projet soit provisionné
 4. Récupère la connection string :
@@ -78,19 +78,22 @@ Note les deux valeurs.
 | `SESSION_SECRET` | le secret session généré à l'étape 4 |
 | `HTTPS_ONLY_COOKIES` | `true` |
 | `DEBUG` | `false` |
-| `COACH_EMAIL` | ton email (ex: `valentin@example.com`) |
-| `COACH_PASSWORD` | un **mot de passe fort** pour ton compte coach |
-| `ATHLETE_EMAIL` | l'email de ta copine |
-| `ATHLETE_PASSWORD` | un mot de passe à lui donner (qu'elle pourra changer si tu ajoutes la fonction plus tard) |
-| `ATHLETE_NAME` | son prénom (ex: `Marie`) |
+| `COACH_EMAIL` | email du premier compte |
+| `COACH_PASSWORD` | mot de passe fort du premier compte |
+| `COACH_NAME` | nom affiché pour le premier compte |
+| `ATHLETE_EMAIL` | email du deuxième compte |
+| `ATHLETE_PASSWORD` | mot de passe fort du deuxième compte |
+| `ATHLETE_NAME` | nom affiché pour le deuxième compte |
+| `ATHLETE2_EMAIL` / `ATHLETE2_PASSWORD` | compte supplémentaire optionnel, les deux valeurs doivent être définies |
+| `ATHLETE2_NAME` | nom affiché pour le compte supplémentaire |
 
 6. **Deploy** — Vercel build le projet (~2-3 min)
 7. Une fois "Ready", tu obtiens une URL type `https://mimi-coach-xxx.vercel.app`
-8. Ouvre-la — tu devrais voir la page de login Mimi Coach 🎉
+8. Ouvre-la, tu devrais voir la page de login Mi Coach 🎉
 
 ## 6) Importer les séances Campus Coach en prod
 
-L'app démarre avec une DB vide (juste les 2 users seedés au lifespan). Pour importer les 24 séances dans la DB Supabase :
+L'app démarre avec une DB vide et crée les comptes configurés. Tous les comptes ont les mêmes droits et ne peuvent gérer que leurs propres séances. Pour importer les séances dans la DB Supabase :
 
 **Option A — depuis ton local** (recommandé, le plus simple) :
 
@@ -108,20 +111,30 @@ L'app démarre avec une DB vide (juste les 2 users seedés au lifespan). Pour im
 
 3. **Remets ton `.env` local sur SQLite** (`DATABASE_URL=sqlite:///./data/app.db`) sinon ton dev local pointera sur la prod.
 
+## Réinitialiser les comptes et toutes les données
+
+Cette opération supprime les comptes, séances, étapes, ressentis et connexions Garmin enregistrés. Elle recrée ensuite les comptes configurés dans les variables d'environnement. Les identifiants de compte gardent leurs adresses et mots de passe configurés. Chaque personne devra reconnecter Garmin.
+
+1. Fais une sauvegarde Supabase si tu veux garder un retour arrière.
+2. Récupère la variable `DATABASE_URL` de Vercel/Supabase dans ton `.env` local. Ne la partage pas et ne la committe pas.
+3. Depuis la racine du dépôt, affiche le nombre d'éléments qui seront supprimés :
+   ```bash
+   python -m scripts.reset_all_data
+   ```
+4. Vérifie que la sortie indique `postgresql` et que les comptes et volumes sont corrects. Puis exécute le reset :
+   ```bash
+   python -m scripts.reset_all_data --confirm-reset RESET-MI-COACH
+   ```
+
+Sans la phrase de confirmation exacte, le script n'efface rien. Il refuse aussi les emails `example.com`, les mots de passe par défaut et les emails de compte dupliqués. Mets à jour les variables d'environnement avant le reset si tu veux de nouveaux identifiants.
+
 **Option B — depuis le dashboard Supabase** : tu peux aussi inspecter / éditer les données via l'onglet "Table Editor" pour faire des modifs ad-hoc.
 
-## 7) Donner accès à ta copine
+## 7) Configurer les comptes
 
-Envoie-lui :
-- 🔗 **L'URL** : `https://mimi-coach-xxx.vercel.app`
-- 📧 **Email** : ce que tu as mis dans `ATHLETE_EMAIL`
-- 🔑 **Mot de passe** : ce que tu as mis dans `ATHLETE_PASSWORD`
+Chaque compte a les mêmes droits et ne voit que ses propres séances. Les identifiants viennent des variables `COACH_EMAIL` / `COACH_PASSWORD`, `ATHLETE_EMAIL` / `ATHLETE_PASSWORD` et, si besoin, `ATHLETE2_EMAIL` / `ATHLETE2_PASSWORD`.
 
-À sa première connexion, elle va :
-1. Voir le programme dans **Séances**
-2. Aller dans **Compte → Garmin Connect** et entrer son email/mdp Garmin (token chiffré stocké, le mdp jamais)
-3. Sur chaque séance, cliquer **Exporter** pour pousser sur sa Garmin
-4. Après chaque séance, cliquer **Trop facile / Parfait / Trop dur** pour auto-ajuster les allures futures
+À la première connexion, chaque personne peut ouvrir **Programme**, puis connecter son propre Garmin depuis **Compte → Garmin Connect**. Le mot de passe Garmin n'est pas stocké ; seul un token chiffré est conservé.
 
 ## 8) Maintenance
 
@@ -135,15 +148,15 @@ git push
 
 Vercel redéploie automatiquement à chaque push sur `main`. La DB Supabase n'est pas touchée par les redéploiements (elle vit indépendamment).
 
-Pour ajouter de nouvelles séances : utilise l'interface admin (`/admin`) directement en ligne, ou modifie `scripts/import_campus_coach.py` puis relance localement avec `DATABASE_URL` pointant sur Supabase.
+Pour ajouter de nouvelles séances : utilise l'interface **Programme** (`/admin`) ou modifie `scripts/import_campus_coach.py`, puis relance-le localement avec `DATABASE_URL` pointant sur Supabase.
 
 ---
 
 ## Coûts
 
-| Service | Free tier | Limite | Suffisant pour 2 users ? |
+| Service | Free tier | Limite | Suffisant pour plusieurs comptes ? |
 |---|---|---|---|
-| **Vercel Hobby** | Illimité (100 GB bande passante) | Cold start ~1s, 30s timeout function, 250 MB max function | ✅ Largement |
+| **Vercel Hobby** | Illimité (100 GB bande passante) | Cold start ~1s, 300s max par fonction. Cette app est configurée à 30s dans `vercel.json` | ✅ Largement |
 | **Supabase Free** | 500 MB DB, 5 GB bande passante / mois | DB pause si pas d'activité 7 jours | ✅ Largement (notre DB ~1 MB) |
 
 **Tu paies 0€/mois** tant que tu restes dans ces limites.
@@ -158,11 +171,11 @@ Si l'app n'a pas été utilisée depuis ~10 min, la première requête prendra *
 
 ### ⚠️ DB pause Supabase (free tier)
 
-Si **personne** n'utilise l'app pendant **7 jours**, Supabase met la DB en pause. La première requête ensuite la réveille (~30s). Pour éviter ça, ouvre l'app au moins une fois par semaine, ou upgrade en Pro (25$/mo) si ta copine utilise très peu.
+Si **personne** n'utilise l'app pendant **7 jours**, Supabase met la DB en pause. La première requête ensuite la réveille (~30s). Pour éviter ça, ouvre l'app au moins une fois par semaine, ou passe en Pro (25$/mo) si les comptes sont rarement utilisés.
 
-### ⚠️ Timeout 30s
+### ⚠️ Timeout configuré à 30s
 
-Le bouton "Exporter Garmin" peut prendre 5-10s à cause des retries anti-rate-limit. Sur Vercel free, le timeout est 10s par défaut, j'ai mis 30s dans `vercel.json`. Si Garmin rate-limite agressivement, le push peut échouer — la lib retentera au prochain clic.
+Le bouton "Exporter Garmin" peut prendre 5-10s à cause des retries anti-rate-limit. Le fichier `vercel.json` limite cette fonction à 30s. La documentation Vercel actuelle indique un maximum de 300s sur le plan Hobby, mais le plafond appliqué à cette app reste 30s. Si Garmin rate-limite agressivement ou si l'export dépasse 30s, le push peut échouer ; la lib retentera au prochain clic.
 
 ### ⚠️ API Garmin non-officielle
 
@@ -172,7 +185,7 @@ Le bouton "Exporter Garmin" peut prendre 5-10s à cause des retries anti-rate-li
 
 ## Sécurité
 
-- 🔐 Le repo GitHub doit rester **privé**
-- 🔐 Ne commit **jamais** ton `.env` (déjà dans `.gitignore`, vérifie avec `git status` avant le push)
-- 🔐 Si tu suspectes une fuite de `FERNET_KEY`, regénères-en une nouvelle ET reconnecte le compte Garmin depuis l'app
+- Un dépôt public expose son code et tout son historique à tout le monde. Garde-le privé si tu ne veux pas rendre les programmes ou informations personnelles accessibles.
+- Ne committe jamais `.env` ni aucun mot de passe, token ou secret. Vérifie aussi l'historique Git avant de changer la visibilité.
+- Si `FERNET_KEY` a été exposée, remplace-la et reconnecte chaque compte Garmin.
 - 🔐 Le mot de passe Supabase reste dans Vercel uniquement (jamais dans le code)

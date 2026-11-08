@@ -26,17 +26,20 @@ class Settings(BaseSettings):
 
     coach_email: str = Field(default="coach@example.com")
     coach_password: str = Field(default="changeme")
+    coach_name: str = Field(default="Compte principal")
     athlete_email: str = Field(default="athlete@example.com")
     athlete_password: str = Field(default="changeme")
-    athlete_name: str = Field(default="Athlete")
+    athlete_name: str = Field(default="Athlète 1")
 
     # 2eme athlete optionnel. Vide = non cree.
     athlete2_email: str = Field(default="")
     athlete2_password: str = Field(default="")
-    athlete2_name: str = Field(default="Athlete 2")
+    athlete2_name: str = Field(default="Athlète 2")
 
-    debug: bool = Field(default=True)
-    # En production : True pour cookies https-only (Railway/Render servent en https)
+    # Fail-safe: une configuration oubliée ne doit pas exposer les traces en prod.
+    # Activer explicitement DEBUG=true dans le .env local pour le développement.
+    debug: bool = Field(default=False)
+    # En production HTTPS (Vercel, Railway, Render), activer les cookies HTTPS-only.
     https_only_cookies: bool = Field(default=False)
 
 
