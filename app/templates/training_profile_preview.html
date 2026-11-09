@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Vérifier mon profil - Mi Coach{% endblock %}
+{% block content %}
+<div class="px-4 sm:px-5 pt-4 pb-12"><div class="max-w-2xl mx-auto">
+  <a href="/onboarding" class="btn btn-ghost btn-sm" style="margin-bottom:14px;">← Modifier</a>
+  <span class="pill pill-accent">Récapitulatif</span>
+  <h1 class="display-l" style="margin-top:10px;">Ton profil de départ</h1>
+  <div class="card card-pad" style="margin-top:16px;">
+    <p><strong>Objectif :</strong> {{ goal_labels[profile.goal] }}{% if profile.race_date %}, le {{ profile.race_date }}{% endif %}</p>
+    <p style="margin-top:6px;"><strong>Base actuelle :</strong> {{ profile.current_runs_per_week }} sorties par semaine, expérience « {{ profile.experience }} »{% if profile.longest_run_km %}, sortie longue récente de {{ profile.longest_run_km }} km{% endif %}</p>
+    <p style="margin-top:6px;"><strong>Disponibilité :</strong> {{ profile.sessions_per_week }} séances par semaine{% if profile.available_days %}, {{ profile.available_days | join(', ') }}{% endif %}</p>
+    {% if has_ef %}<p style="margin-top:6px;"><strong>EF :</strong> {{ profile.ef_fast }}–{{ profile.ef_slow }}/km</p>{% else %}<p style="margin-top:6px;color:var(--ink-muted);">EF non renseignée, les allures devront être ajoutées manuellement.</p>{% endif %}
+  </div>
+  {% if base_warning %}
+  <div class="card card-pad" style="margin-top:12px;border-color:#f59e0b;color:#92400e;">
+    <strong>À vérifier avant de démarrer</strong>
+    <p style="font-size:12px;line-height:1.5;margin-top:6px;">La fréquence choisie est supérieure à ta pratique actuelle, ou tu débutes / reprends. Envisage une reprise progressive plutôt que d'augmenter brutalement le nombre de séances. Ce profil ne génère pas encore automatiquement une phase de reprise.</p>
+  </div>
+  {% endif %}
+
+  <div class="card card-pad" style="margin-top:12px;">
+    <h2 class="section-title">Allures proposées</h2>
+    {% if not has_ef %}<p style="font-size:12px;color:var(--ink-muted);margin-top:8px;">Aucune allure n'a été calculée. Tu pourras les saisir dans les paramètres du profil.</p>
+    {% elif not has_auto_reference %}<p style="font-size:12px;color:var(--ink-muted);margin-top:8px;">La référence d'allures marathon n'est pas encore validée. Aucune allure automatique n'est proposée pour cet objectif.</p>
+    {% else %}
+    <div class="flex flex-col" style="gap:7px;margin-top:12px;">
+      {% for pace in pace_rows %}{% if pace.value %}<div class="flex justify-between" style="border-bottom:1px solid var(--line);padding:6px 0;"><span>{{ pace.label }}</span><strong>{{ pace.value }}/km</strong></div>{% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <p style="font-size:11px;color:var(--ink-muted);margin:12px 2px;">Tu pourras ajuster chaque allure dans Paramètres → Entraînement. Les allures manuelles seront conservées lors des recalculs.</p>
+
+  <form method="post" action="/onboarding/save" class="flex flex-col" style="gap:8px;margin-top:16px;">
+    {% for key in ['goal','experience','current_runs_per_week','longest_run_km','sessions_per_week','race_date','ef_fast','ef_slow'] %}
+      <input type="hidden" name="{{ key }}" value="{{ profile[key] if profile[key] is not none else '' }}" />
+    {% endfor %}
+    {% for day in profile.available_days %}<input type="hidden" name="available_days" value="{{ day }}" />{% endfor %}
+    <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Enregistrer mon profil</button>
+  </form>
+</div></div>
+{% endblock %}

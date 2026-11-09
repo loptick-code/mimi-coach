@@ -15,6 +15,7 @@ from app.db import init_db
 from app.routes import auth as auth_routes
 from app.routes import garmin as garmin_routes
 from app.routes import sessions as session_routes
+from app.routes import training as training_routes
 from app.seed import seed_users
 from app.templates import TEMPLATE_DIR
 
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_routes.router)
     app.include_router(session_routes.router)
+    app.include_router(training_routes.router)
     app.include_router(garmin_routes.router)
 
     @app.exception_handler(HTTPException)
