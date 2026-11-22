@@ -102,6 +102,10 @@ class User(SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
     )
+    training_plan_state: Optional["TrainingPlanState"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
+    )
 
 
 class TrainingProfile(SQLModel, table=True):
@@ -126,6 +130,23 @@ class TrainingProfile(SQLModel, table=True):
     manual_paces_json: str = Field(default="[]")
 
     user: Optional[User] = Relationship(back_populates="training_profile")
+
+
+class TrainingPlanState(SQLModel, table=True):
+    """Plan actuellement généré pour un compte.
+
+    La liste des IDs permet de régénérer uniquement les séances produites par
+    l'onboarding, sans toucher aux séances saisies manuellement par l'athlète.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", unique=True, index=True)
+    plan_key: str
+    race_date: _dt.date
+    generated_session_ids_json: str = Field(default="[]")
+    generated_at: _dt.datetime = Field(default_factory=_dt.datetime.utcnow)
+
+    user: Optional[User] = Relationship(back_populates="training_plan_state")
 
 
 class Session(SQLModel, table=True):

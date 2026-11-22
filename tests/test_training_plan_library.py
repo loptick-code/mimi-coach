@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+import unittest
+from datetime import date
+
+from app.services.training_plan_library import generate_schedule, get_plan
+
+
+class TrainingPlanLibraryTests(unittest.TestCase):
+    def test_objectives_have_library_templates(self):
+        self.assertEqual(get_plan("10k").weeks, 13)
+        self.assertEqual(get_plan("half").weeks, 15)
+
+    def test_schedule_is_anchored_on_race_date(self):
+        race_date = date(2027, 3, 14)  # dimanche
+        _, schedule = generate_schedule("10k", race_date, 300, 330, 4, today=date(2026, 11, 22))
+        self.assertEqual(schedule[-1].date, race_date)
+        self.assertEqual(schedule[-1].plan_week, 13)
+        self.assertEqual(schedule[-1].session_number, 4)
+        self.assertEqual(schedule[0].date.weekday(), 0)
+
+    def test_three_sessions_remove_session_three_every_week(self):
+        race_date = date(2027, 3, 14)
+        _, schedule = generate_schedule("half", race_date, 300, 330, 3, today=date(2026, 11, 22))
+        self.assertTrue(schedule)
+        self.assertTrue(all(item.session_number != 3 for item in schedule))
+        self.assertEqual(schedule[-1].date, race_date)
+
+    def test_ef_is_applied_to_easy_steps(self):
+        plan = get_plan("10k")
+        easy = next(item for item in plan.workouts if item.week_number == 1 and item.session_number == 1)
+        self.assertEqual(easy.steps[0].target_key, "ef")
+        _, schedule = generate_schedule("10k", date(2027, 3, 14), 300, 330, 4, today=date(2026, 11, 22))
+        first_easy = next(item for item in schedule if item.plan_week == 1 and item.session_number == 1)
+        self.assertEqual(first_easy.steps[0].source_pace_fast, 300)
+        self.assertEqual(first_easy.steps[0].source_pace_slow, 330)
+
+
+if __name__ == "__main__":
+    unittest.main()

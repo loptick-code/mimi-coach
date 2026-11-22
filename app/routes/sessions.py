@@ -53,7 +53,12 @@ async def home(
     profile = db.exec(
         select(TrainingProfile).where(TrainingProfile.user_id == user.id)
     ).first()
-    if profile is None:
+    if (
+        profile is None
+        or profile.race_date is None
+        or profile.ef_fast_sec_per_km is None
+        or profile.ef_slow_sec_per_km is None
+    ):
         return RedirectResponse(url="/onboarding", status_code=303)
 
     today = date.today()
