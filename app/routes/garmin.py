@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
@@ -142,7 +142,7 @@ async def export_session(
         )
 
     s.garmin_workout_id = workout_id
-    s.pushed_at = datetime.utcnow()
+    s.pushed_at = datetime.now(timezone.utc)
     s.last_push_error = None
     db.add(s)
     db.commit()

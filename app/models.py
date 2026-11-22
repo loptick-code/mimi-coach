@@ -18,6 +18,11 @@ from sqlalchemy import BigInteger, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 
+def _utc_now() -> _dt.datetime:
+    """Retourne un timestamp timezone-aware compatible PostgreSQL TIMESTAMPTZ."""
+    return _dt.datetime.now(_dt.timezone.utc)
+
+
 # --- Enums ---
 
 
@@ -143,7 +148,7 @@ class TrainingPlanState(SQLModel, table=True):
     plan_key: str
     race_date: _dt.date
     generated_session_ids_json: str = Field(default="[]")
-    generated_at: _dt.datetime = Field(default_factory=_dt.datetime.utcnow)
+    generated_at: _dt.datetime = Field(default_factory=_utc_now)
 
     user: Optional[User] = Relationship(back_populates="training_plan_state")
 
@@ -181,8 +186,8 @@ class Session(SQLModel, table=True):
     actual_duration_sec: Optional[int] = Field(default=None)
     actual_distance_m: Optional[float] = Field(default=None)
 
-    created_at: _dt.datetime = Field(default_factory=_dt.datetime.utcnow)
-    updated_at: _dt.datetime = Field(default_factory=_dt.datetime.utcnow)
+    created_at: _dt.datetime = Field(default_factory=_utc_now)
+    updated_at: _dt.datetime = Field(default_factory=_utc_now)
 
     athlete: Optional[User] = Relationship(back_populates="sessions")
     steps: List["Step"] = Relationship(
