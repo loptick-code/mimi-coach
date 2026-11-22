@@ -58,13 +58,12 @@ class SessionFeedback(str, Enum):
     too_hard = "too_hard"
 
 
-# Effet de chaque feedback sur le pace_adjustment_pct (cumulatif, borne +-10)
+# Effet de chaque feedback sur le pace_adjustment_pct, cumulatif et sans borne.
 FEEDBACK_DELTA = {
     SessionFeedback.too_easy: -2.0,
     SessionFeedback.perfect: 0.0,
     SessionFeedback.too_hard: +2.0,
 }
-PACE_ADJUSTMENT_BOUND = 10.0  # %
 
 
 # --- Tables ---

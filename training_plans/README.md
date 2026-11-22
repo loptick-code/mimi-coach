@@ -27,8 +27,7 @@ Les allures manuellement personnalisées sont appliquées aux nouvelles séances
 Les allures spécifiques aux séances restent celles de leur semaine source. Le
 ressenti n'écrase pas ces références : il ajoute seulement un ajustement
 progressif pour les séances futures non validées. « Trop facile » accélère de
-2 %, « trop dur » ralentit de 2 %, et « parfait » ne change rien. L'ajustement
-cumulé est borné à +/-10 %.
+2 %, « trop dur » ralentit de 2 %, et « parfait » ne change rien. L'ajustement reste cumulatif sans plafond; il doit donc être suivi par l'athlète.
 
 ## Limites connues
 

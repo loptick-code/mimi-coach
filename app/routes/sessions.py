@@ -14,7 +14,6 @@ from app.auth import current_user, require_user
 from app.db import get_session
 from app.models import (
     FEEDBACK_DELTA,
-    PACE_ADJUSTMENT_BOUND,
     DurationType,
     Session,
     SessionFeedback,
@@ -318,16 +317,9 @@ async def submit_feedback(
     # cette seance a ete prescrite/courue.
     snapshot = athlete.pace_adjustment_pct or 0.0
 
-    # Applique le nouveau feedback (impacte les futures seances uniquement).
-    # L'ajustement reste progressif et borné pour éviter qu'un historique de
-    # feedbacks ne rende les allures irréalistes.
-    athlete.pace_adjustment_pct = max(
-        -PACE_ADJUSTMENT_BOUND,
-        min(
-            PACE_ADJUSTMENT_BOUND,
-            (athlete.pace_adjustment_pct or 0.0) + FEEDBACK_DELTA[new_fb],
-        ),
-    )
+    # Applique le nouveau feedback aux futures séances uniquement. L'ajustement
+    # est cumulatif, sans modifier le plan source.
+    athlete.pace_adjustment_pct = (athlete.pace_adjustment_pct or 0.0) + FEEDBACK_DELTA[new_fb]
 
     s.feedback = new_fb
     s.validated_at = datetime.utcnow()
