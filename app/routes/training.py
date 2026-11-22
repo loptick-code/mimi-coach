@@ -29,6 +29,7 @@ from app.services.training_paces import (
     supported_goal,
     validate_ef_range,
 )
+from app.services.session_cleanup import delete_sessions_safely
 from app.services.training_plan_library import PlanStep, generate_schedule
 from app.services.workout_builder import estimate_duration_and_distance, pace_min_per_km_to_m_per_s
 from app.services.workout_text_parser import ParsedWorkout, WorkoutTextError, parse_workout_text
@@ -164,11 +165,12 @@ def _delete_generated_future_sessions(db: DBSession, user: User, state: Training
     if state is None:
         return
     today = date.today()
+    sessions_to_delete: list[Session] = []
     for raw_id in _json_list(state.generated_session_ids_json):
         session = db.get(Session, int(raw_id))
         if session and session.athlete_id == user.id and session.date >= today and session.validated_at is None:
-            db.delete(session)
-    db.flush()
+            sessions_to_delete.append(session)
+    delete_sessions_safely(db, sessions_to_delete)
 
 
 def _create_plan_steps(db: DBSession, session_id: int, plan_steps: list[PlanStep]) -> list[Step]:
@@ -639,10 +641,7 @@ async def confirm_workout_text(
         )
 
     if existing_weeks:
-        for sessions in existing_weeks.values():
-            for existing in sessions:
-                db.delete(existing)
-        db.flush()
+        delete_sessions_safely(db, [session for sessions in existing_weeks.values() for session in sessions])
 
     for workout in parsed.workouts:
         session_number = workout.session_number or workout.weekday + 1
