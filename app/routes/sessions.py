@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -357,7 +357,7 @@ async def submit_feedback(
     athlete.pace_adjustment_pct = (athlete.pace_adjustment_pct or 0.0) + FEEDBACK_DELTA[new_fb]
 
     s.feedback = new_fb
-    s.validated_at = datetime.utcnow()
+    s.validated_at = datetime.now(timezone.utc)
     s.pace_adjustment_at_validation = snapshot
 
     db.add(athlete)
