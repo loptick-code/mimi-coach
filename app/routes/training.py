@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+import re
+import unicodedata
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session as DBSession, select
 
 from app.auth import require_user
@@ -29,6 +32,7 @@ from app.services.training_paces import (
     supported_goal,
     validate_ef_range,
 )
+from app.services.workout_builder import pace_min_per_km_to_m_per_s
 from app.services.session_cleanup import delete_sessions_safely
 from app.services.training_plan_library import PlanStep, generate_schedule
 from app.services.workout_builder import estimate_duration_and_distance, pace_min_per_km_to_m_per_s
@@ -242,6 +246,80 @@ def _apply_manual_paces(plan_steps: list[PlanStep], manual_targets: dict[str, in
         _apply_manual_paces(step.children, manual_targets)
 
 
+def _pace_key_for_step(step: Step) -> str | None:
+    normalized = unicodedata.normalize("NFKD", step.label or "").encode("ascii", "ignore").decode("ascii").lower()
+    if normalized == "ef":
+        return "ef"
+    for key, label in PACE_LABELS.items():
+        if normalized == unicodedata.normalize("NFKD", label).encode("ascii", "ignore").decode("ascii").lower():
+            return key
+    return None
+
+
+def _pace_bounds(
+    ef_fast: int | None,
+    ef_slow: int | None,
+    targets: dict[str, int],
+) -> dict[str, tuple[float, float]]:
+    bounds: dict[str, tuple[float, float]] = {}
+    if ef_fast and ef_slow:
+        bounds["ef"] = (
+            pace_min_per_km_to_m_per_s(ef_slow / 60),
+            pace_min_per_km_to_m_per_s(ef_fast / 60),
+        )
+    for key, pace_seconds in targets.items():
+        speed = pace_min_per_km_to_m_per_s(pace_seconds / 60)
+        bounds[key] = (speed, speed)
+    return bounds
+
+
+def _update_future_plan_paces(
+    db: DBSession,
+    user: User,
+    old_ef_fast: int | None,
+    old_ef_slow: int | None,
+    old_targets: dict[str, int],
+    profile: TrainingProfile,
+) -> None:
+    """Met à jour uniquement les cibles inchangées manuellement sur les séances."""
+    old_bounds = _pace_bounds(old_ef_fast, old_ef_slow, old_targets)
+    new_bounds = _pace_bounds(
+        profile.ef_fast_sec_per_km,
+        profile.ef_slow_sec_per_km,
+        _json_dict(profile.pace_targets_json),
+    )
+    if not old_bounds or not new_bounds:
+        return
+
+    sessions = db.exec(
+        select(Session)
+        .options(selectinload(Session.steps))
+        .where(Session.athlete_id == user.id)
+        .where(Session.date >= date.today())
+        .where(Session.validated_at.is_(None))
+        .where(Session.description.like("Plan %"))
+    ).all()
+    for session in sessions:
+        changed = False
+        for step in session.steps:
+            if step.target_type != TargetType.pace:
+                continue
+            key = _pace_key_for_step(step)
+            if key not in old_bounds or key not in new_bounds:
+                continue
+            old_low, old_high = old_bounds[key]
+            if abs((step.target_low or 0) - old_low) > 1e-6 or abs((step.target_high or 0) - old_high) > 1e-6:
+                # L'athlète a modifié cette étape manuellement, on la conserve.
+                continue
+            step.target_low, step.target_high = new_bounds[key]
+            db.add(step)
+            changed = True
+        if changed:
+            session.updated_at = datetime.now(timezone.utc)
+            db.add(session)
+    db.commit()
+
+
 def _generate_plan(db: DBSession, user: User, profile: TrainingProfile) -> TrainingPlanState:
     _delete_generated_future_sessions(db, user, _plan_state(db, user))
     _, schedule = generate_schedule(
@@ -382,11 +460,24 @@ async def save_training_settings(request: Request, user: User = Depends(require_
     if error:
         return _profile_form_response(request, _profile_context(existing), error=error, settings_mode=True)
     try:
+        pace_only_change = bool(
+            existing
+            and existing.goal == data["goal"]
+            and existing.race_date == data["race_date"]
+            and existing.sessions_per_week == data["sessions_per_week"]
+        )
+        old_ef_fast = existing.ef_fast_sec_per_km if existing else None
+        old_ef_slow = existing.ef_slow_sec_per_km if existing else None
+        old_targets = _json_dict(existing.pace_targets_json) if existing else {}
         profile = _store_profile(db, user, data, form, existing)
-        user.pace_adjustment_pct = 0.0
-        db.add(user)
-        db.commit()
-        _generate_plan(db, user, profile)
+        if not pace_only_change:
+            user.pace_adjustment_pct = 0.0
+        if pace_only_change:
+            _update_future_plan_paces(db, user, old_ef_fast, old_ef_slow, old_targets, profile)
+        else:
+            db.add(user)
+            db.commit()
+            _generate_plan(db, user, profile)
     except (ValueError, KeyError, ImportError) as exc:
         return _profile_form_response(request, _profile_context(existing), error=str(exc), settings_mode=True)
     return RedirectResponse(url="/settings/entrainement?saved=1", status_code=303)
