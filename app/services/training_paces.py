@@ -62,6 +62,15 @@ def validate_ef_range(fast_seconds: int, slow_seconds: int) -> None:
         raise ValueError("La plage EF doit couvrir exactement 30 secondes par km")
 
 
+def scale_ef_range(fast_seconds: int, slow_seconds: int, factor: float) -> tuple[int, int]:
+    """Déplace le milieu de l'EF en conservant exactement 30 s/km d'écart."""
+    midpoint = ((fast_seconds + slow_seconds) / 2) * factor
+    fast = int(round(midpoint - 15))
+    slow = fast + 30
+    validate_ef_range(fast, slow)
+    return fast, slow
+
+
 def calculate_pace_targets(
     goal: str, ef_fast_seconds: int, ef_slow_seconds: int
 ) -> dict[str, int]:

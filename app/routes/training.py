@@ -331,6 +331,9 @@ async def onboarding_save(request: Request, user: User = Depends(require_user), 
     try:
         data = _form_profile(form)
         profile = _store_profile(db, user, data, form, _profile(db, user))
+        user.pace_adjustment_pct = 0.0
+        db.add(user)
+        db.commit()
         _generate_plan(db, user, profile)
     except (ValueError, KeyError, ImportError) as exc:
         return _profile_form_response(request, _profile_context(_profile(db, user)), error=str(exc))
@@ -355,6 +358,9 @@ async def save_training_settings(request: Request, user: User = Depends(require_
         return _profile_form_response(request, _profile_context(existing), error=error, settings_mode=True)
     try:
         profile = _store_profile(db, user, data, form, existing)
+        user.pace_adjustment_pct = 0.0
+        db.add(user)
+        db.commit()
         _generate_plan(db, user, profile)
     except (ValueError, KeyError, ImportError) as exc:
         return _profile_form_response(request, _profile_context(existing), error=str(exc), settings_mode=True)

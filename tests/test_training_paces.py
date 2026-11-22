@@ -5,6 +5,7 @@ import unittest
 from app.services.training_paces import (
     calculate_pace_targets,
     pace_to_seconds,
+    scale_ef_range,
     seconds_to_pace,
     validate_ef_range,
 )
@@ -28,6 +29,14 @@ class TrainingPaceTests(unittest.TestCase):
         self.assertEqual(marathon_targets["s60"], 231)
         self.assertEqual(marathon_targets["race_half"], 228)
         self.assertEqual(marathon_targets["race_marathon"], 266)
+
+    def test_feedback_moves_current_ef_and_keeps_30_second_gap(self):
+        faster = scale_ef_range(300, 330, 0.98)
+        slower = scale_ef_range(300, 330, 1.02)
+        self.assertEqual(faster[1] - faster[0], 30)
+        self.assertEqual(slower[1] - slower[0], 30)
+        self.assertLess(faster[0], 300)
+        self.assertGreater(slower[0], 300)
 
 
 if __name__ == "__main__":

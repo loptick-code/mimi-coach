@@ -24,10 +24,16 @@ La borne opposée est complétée automatiquement dans l'interface : saisir la b
 
 Les allures manuellement personnalisées sont appliquées aux nouvelles séances générées et ne sont pas écrasées par un recalcul automatique.
 
-Les allures spécifiques aux séances restent celles de leur semaine source. Le
-ressenti n'écrase pas ces références : il ajoute seulement un ajustement
-progressif pour les séances futures non validées. « Trop facile » accélère de
-2 %, « trop dur » ralentit de 2 %, et « parfait » ne change rien. L'ajustement reste cumulatif sans plafond; il doit donc être suivi par l'athlète.
+Les séances gardent leur progression de durée, de distance et de répétitions,
+mais l'allure d'un même type d'effort reste fixe dans un premier temps. Le
+profil affiche l'EF courante de l'athlète à l'instant T. Après une séance,
+« trop facile » accélère l'EF courante de 2 %, « trop dur » la ralentit de 2 %,
+et « parfait » ne change rien. La plage garde toujours exactement 30 secondes
+par kilomètre d'écart. Les allures automatiques sont recalculées depuis cette
+EF courante; une allure marquée comme personnalisée reste inchangée. L'effet
+est cumulatif sans plafond et ne modifie pas la source du plan. La progression
+de l'allure vient donc d'un feedback explicite de l'athlète, pas du simple
+passage des semaines.
 
 ## Limites connues
 

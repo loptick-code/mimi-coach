@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Iterable, Optional
 
-from app.services.training_paces import pace_to_seconds
+from app.services.training_paces import PACE_REFERENCE_PROFILE, pace_to_seconds
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -384,6 +384,13 @@ def _scale_step(step: PlanStep, factor: float, ef_fast: int, ef_slow: int) -> Pl
     )
     if step.target_key == "ef":
         result.source_pace_fast, result.source_pace_slow = ef_fast, ef_slow
+    elif step.target_key in PACE_REFERENCE_PROFILE:
+        # Les plans source peuvent accélérer d'une semaine à l'autre. Pour la
+        # première version, on conserve une allure fixe par type d'effort et
+        # laisse l'athlète demander lui-même une progression via le feedback.
+        source_reference = PACE_REFERENCE_PROFILE[step.target_key]
+        result.source_pace_fast = round(source_reference * factor)
+        result.source_pace_slow = result.source_pace_fast
     elif step.source_pace_fast is not None:
         result.source_pace_fast = round(step.source_pace_fast * factor)
         result.source_pace_slow = round((step.source_pace_slow or step.source_pace_fast) * factor)

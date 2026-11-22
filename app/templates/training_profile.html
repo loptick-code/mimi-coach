@@ -45,8 +45,8 @@
       </section>
 
       <section class="card card-pad flex flex-col" style="gap:12px;">
-        <h2 class="section-title">Ta plage d’endurance fondamentale</h2>
-        <p style="font-size:12px;color:var(--ink-muted);line-height:1.5;">Cette plage est obligatoire pour calculer les allures du plan. Tu peux mettre une estimation réaliste, par exemple 5:00–5:30/km, puis la modifier plus tard dans tes paramètres.</p>
+        <h2 class="section-title">Ton EF actuelle</h2>
+        <p style="font-size:12px;color:var(--ink-muted);line-height:1.5;">Cette plage est obligatoire pour calculer les allures du plan. Elle représente ton EF actuelle à l’instant T. Tu peux mettre une estimation réaliste, par exemple 5:00–5:30/km, puis la modifier plus tard dans tes paramètres.</p>
         <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">
           <label>
             <span class="field-label">Borne rapide (min/km)</span>
@@ -64,7 +64,7 @@
       <section class="card card-pad flex flex-col" style="gap:12px;">
         <div>
           <h2 class="section-title">Mes allures</h2>
-          <p style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Les valeurs automatiques sont recalculées depuis le milieu de ta plage EF. Coche « personnalisée » pour conserver une allure choisie manuellement.</p>
+          <p style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Les valeurs automatiques partent d’une allure fixe par type d’effort. Elles sont recalculées depuis ton EF actuelle. La progression vient ensuite de tes retours de séance. Coche « personnalisée » pour conserver une allure choisie manuellement.</p>
         </div>
         <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">
           {% for pace in pace_rows %}
