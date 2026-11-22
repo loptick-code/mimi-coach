@@ -24,6 +24,12 @@ La borne opposée est complétée automatiquement dans l'interface : saisir la b
 
 Les allures manuellement personnalisées sont appliquées aux nouvelles séances générées et ne sont pas écrasées par un recalcul automatique.
 
+Les allures spécifiques aux séances restent celles de leur semaine source. Le
+ressenti n'écrase pas ces références : il ajoute seulement un ajustement
+progressif pour les séances futures non validées. « Trop facile » accélère de
+2 %, « trop dur » ralentit de 2 %, et « parfait » ne change rien. L'ajustement
+cumulé est borné à +/-10 %.
+
 ## Limites connues
 
 Le document 10 km fourni détaille surtout les séances clés 2 et 4 et confirme que les séances 1 et 3 sont des EF jumelles sans préciser toutes leurs durées. Le générateur utilise donc une durée EF conservative et documentée pour ces deux séances, jusqu'à réception d'une version complète du plan.

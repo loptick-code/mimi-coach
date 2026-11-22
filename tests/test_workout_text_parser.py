@@ -72,6 +72,16 @@ class WorkoutTextParserTests(unittest.TestCase):
         self.assertEqual([item.session_number for item in result.workouts], [1, 2, 3, 4, 5, 6])
         self.assertEqual(result.omitted_workouts, [])
 
+    def test_warmup_cooldown_are_easy_and_feel_fast_is_sprint(self):
+        result = parse_workout_text(
+            "Séance 1 : 15 min échauffement + 6 x (15 s aux sensations + 45 s récupération) + 10 min retour au calme",
+            start_date=self.start,
+            pace_targets=self.targets,
+            ef_range=self.ef,
+        )
+        labels = [step.label for step in result.workouts[0].steps if step.kind != "repeat"]
+        self.assertEqual(labels, ["EF", "Sprint", "Récupération", "EF"])
+
     def test_race_week_removes_explicit_session_three(self):
         result = parse_workout_text(
             "Semaine 13\nSéance 2 (mardi) : 20 min EF\nSéance 3 (jeudi) : 20 min EF\nSéance 4 (dimanche) : 10 km à allure 10 km",

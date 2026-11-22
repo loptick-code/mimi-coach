@@ -318,8 +318,16 @@ async def submit_feedback(
     # cette seance a ete prescrite/courue.
     snapshot = athlete.pace_adjustment_pct or 0.0
 
-    # Applique le nouveau feedback (impacte les futures seances uniquement)
-    athlete.pace_adjustment_pct = (athlete.pace_adjustment_pct or 0.0) + FEEDBACK_DELTA[new_fb]
+    # Applique le nouveau feedback (impacte les futures seances uniquement).
+    # L'ajustement reste progressif et borné pour éviter qu'un historique de
+    # feedbacks ne rende les allures irréalistes.
+    athlete.pace_adjustment_pct = max(
+        -PACE_ADJUSTMENT_BOUND,
+        min(
+            PACE_ADJUSTMENT_BOUND,
+            (athlete.pace_adjustment_pct or 0.0) + FEEDBACK_DELTA[new_fb],
+        ),
+    )
 
     s.feedback = new_fb
     s.validated_at = datetime.utcnow()

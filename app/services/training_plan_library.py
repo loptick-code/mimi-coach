@@ -139,7 +139,7 @@ def _step_from_segment(segment: str) -> Optional[PlanStep]:
     source_slow = max(paces) if paces else None
     normalized = _norm(segment)
     if key in {"ef", "tempo", "s60", "s30", "vma", "sweet_spot", "aerobic", "race_10k", "race_half", "race_marathon"}:
-        step_type = "warmup" if "echauff" in normalized else "cooldown" if "retour au calme" in normalized or "recup" in normalized and key == "ef" else "interval"
+        step_type = "interval"
     elif re.search(r"\b(?:recup|lente?|repos)\b", normalized):
         key, step_type = None, "recovery"
     elif re.search(r"\b(?:rapide|sprint|libre|lignes droites|sensations)\b", normalized):
@@ -157,8 +157,8 @@ def _step_from_segment(segment: str) -> Optional[PlanStep]:
         }.get(key, label)
     elif step_type == "recovery":
         label = "Récupération"
-    elif "rapide" in normalized or "sprint" in normalized:
-        label = "Rapide, aux sensations"
+    elif re.search(r"\b(?:rapide|sprint|sensations|lignes droites)\b", normalized):
+        label = "Sprint"
     return PlanStep(
         label=label[:120],
         duration_seconds=duration_value if duration_type == "time" else None,

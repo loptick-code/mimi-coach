@@ -129,12 +129,10 @@ def _zone(rest: str) -> tuple[Optional[str], str]:
             return key, label
     if re.search(r"\b(?:recup(?:eration)?|lent|lente|repos)\b", normalized):
         return "recovery", "Récupération"
-    if re.search(r"\b(?:echauffement|warm ?up)\b", normalized):
-        return "warmup", "Échauffement"
-    if re.search(r"\b(?:retour au calme|rc|cool ?down)\b", normalized):
-        return "cooldown", "Retour au calme"
+    if re.search(r"\b(?:echauffement|warm ?up|retour au calme|rc|cool ?down)\b", normalized):
+        return "ef", "EF"
     if re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations)\b", normalized):
-        return "fast_by_feel", "Rapide, aux sensations"
+        return "sprint", "Sprint"
     return None, ""
 
 
@@ -188,10 +186,8 @@ def _parse_one_step(
         step_type = "other"
     elif key == "recovery":
         step_type = "recovery"
-    elif key == "warmup":
-        step_type = "warmup"
-    elif key == "cooldown":
-        step_type = "cooldown"
+    elif key == "sprint":
+        step_type = "interval"
 
     target_type = "no_target"
     if key == "ef" and pace_fast is None:
