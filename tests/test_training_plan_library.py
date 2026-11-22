@@ -11,6 +11,16 @@ class TrainingPlanLibraryTests(unittest.TestCase):
         self.assertEqual(get_plan("10k").weeks, 13)
         self.assertEqual(get_plan("half").weeks, 15)
 
+    def test_source_plans_expose_the_race_session(self):
+        for goal, race_name in (("10k", "Course 10 km"), ("half", "Course semi-marathon")):
+            plan = get_plan(goal)
+            race = next(
+                item for item in plan.workouts
+                if item.week_number == plan.weeks and item.session_number == 4
+            )
+            self.assertEqual(race.name, race_name)
+            self.assertEqual(race.steps[0].label, "Course")
+
     def test_schedule_is_anchored_on_race_date(self):
         race_date = date(2027, 3, 14)  # dimanche
         _, schedule = generate_schedule("10k", race_date, 300, 330, 4, today=date(2026, 11, 22))

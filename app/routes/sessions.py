@@ -37,6 +37,10 @@ from app.templates import templates
 
 router = APIRouter()
 
+_PLAN_PREFIX_RE = re.compile(r"^(?:Semaine\s+(?P<week_long>\d+)|S(?P<week_short>\d+))\s*·\s*(?P<rest>.*)$", re.IGNORECASE)
+_SESSION_NUMBER_RE = re.compile(r"^Séance\s+(?P<number>[1-6])\b", re.IGNORECASE)
+_DAY_TO_SESSION = {0: 1, 1: 2, 2: 3, 6: 4}
+
 
 def _normalize_manual_step(raw_type: object, raw_label: object) -> tuple[StepType, str | None]:
     """Conserve les mêmes conventions que les plans et l'import texte."""
@@ -50,6 +54,47 @@ def _normalize_manual_step(raw_type: object, raw_label: object) -> tuple[StepTyp
     if re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations|effort libre)\b", normalized):
         return StepType.interval, "Sprint"
     return step_type, label
+
+
+def _session_display_meta(sessions: list[Session]) -> dict[int, dict[str, object]]:
+    """Normalise les anciens noms S13 et les nouveaux noms Semaine 13."""
+    metadata: dict[int, dict[str, object]] = {}
+    for session in sessions:
+        raw_name = (session.name or "Séance").strip()
+        match = _PLAN_PREFIX_RE.match(raw_name)
+        plan_week = None
+        rest = raw_name
+        if match:
+            plan_week = int(match.group("week_long") or match.group("week_short"))
+            rest = (match.group("rest") or "").strip()
+
+        number_match = _SESSION_NUMBER_RE.match(rest)
+        if number_match:
+            session_number = int(number_match.group("number"))
+            title = rest[number_match.end():].lstrip(" ·:-") or rest
+        else:
+            session_number = _DAY_TO_SESSION.get(session.date.weekday())
+            title = rest
+
+        normalized = unicodedata.normalize("NFKD", raw_name).encode("ascii", "ignore").decode("ascii").lower()
+        is_race = bool(re.search(r"\b(?:course|competition|marathon|semi[- ]marathon|10\s*km)\b", normalized))
+        if is_race:
+            label = "Course"
+        elif plan_week is not None and session_number is not None:
+            label = f"Semaine {plan_week} · Séance {session_number}"
+        elif session_number is not None:
+            label = f"Séance {session_number}"
+        else:
+            label = "Séance"
+
+        metadata[session.id] = {
+            "label": label,
+            "title": title,
+            "plan_week": plan_week,
+            "session_number": session_number,
+            "is_race": is_race,
+        }
+    return metadata
 
 
 def _update_current_profile_from_feedback(
@@ -148,6 +193,7 @@ async def home(
             "monday": monday,
             "sunday": sunday,
             "sessions": sessions,
+            "session_meta": _session_display_meta(sessions),
             "total_count": len(sessions),
             "total_duration": total_duration,
             "total_distance": total_distance,
@@ -323,6 +369,7 @@ async def session_detail(
         {
             "user": user,
             "session": s,
+            "session_meta": _session_display_meta([s])[s.id],
             "athlete": athlete,
             "applied_adjustment_pct": applied_adj,
             "can_edit": True,
@@ -576,6 +623,8 @@ async def admin_home(
         w["total_distance"] = sum((s.estimated_distance_km or 0) for s in w["sessions"])
         w["done_count"] = sum(1 for s in w["sessions"] if s.feedback is not None)
 
+    all_sessions = [s for week in weeks for s in week["sessions"]]
+
     return templates.TemplateResponse(
         request,
         "admin.html",
@@ -583,6 +632,7 @@ async def admin_home(
             "user": user,
             "athlete": athlete,
             "weeks": weeks,
+            "session_meta": _session_display_meta(all_sessions),
             "total_sessions": len(sessions_list),
         },
     )

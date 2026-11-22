@@ -92,6 +92,7 @@
   <!-- Liste des seances -->
   <div class="flex flex-col" style="gap: 10px;">
     {% for s in sessions %}
+      {% set meta = session_meta[s.id] %}
       <a href="/sessions/{{ s.id }}"
          class="flex items-center group"
          style="background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 14px; gap: 14px; transition: border-color 120ms; text-decoration: none; color: inherit;"
@@ -99,13 +100,13 @@
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center" style="gap: 6px; margin-bottom: 4px; flex-wrap: wrap;">
-            <span class="micro-label">Séance {{ loop.index }}</span>
-            {% if loop.index in [2, 4] %}<span class="pill pill-accent">à ne pas manquer</span>{% endif %}
+            <span class="micro-label">{{ meta.label }}</span>
+            {% if meta.session_number in [2, 4] and not meta.is_race %}<span class="pill pill-accent">à ne pas manquer</span>{% endif %}
             {% if s.feedback %}{{ feedback_pill(s.feedback, with_label=False) }}{% endif %}
             {% if s.pushed_at and not s.feedback %}<span class="pill pill-ink-soft">exportée</span>{% endif %}
           </div>
           <div class="display-s" style="margin-bottom: 8px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            {{ s.name }}
+            {{ meta.title }}
           </div>
 
           {% if s.steps %}
