@@ -162,11 +162,9 @@
         <label>
           <span class="field-label">Type</span>
           <select name="" class="type-select input input-sm">
-            <option value="warmup">Échauffement</option>
             <option value="interval" selected>Intervalle</option>
             <option value="recovery">Récupération</option>
-            <option value="cooldown">Retour calme</option>
-            <option value="other">Course continue</option>
+            <option value="other">EF / course continue</option>
           </select>
         </label>
         <label>
@@ -346,8 +344,10 @@
     node.querySelector('.remove-btn').addEventListener('click', () => { node.remove(); refreshNames(); });
     if (fill) {
       const set = (sel, val) => { const n = node.querySelector(sel); if (n != null && val != null) n.value = val; };
-      set('.type-select', fill.type);
-      set('.label-input', fill.label);
+      const normalizedType = ['warmup', 'cooldown'].includes(fill.type) ? 'other' : fill.type;
+      const normalizedLabel = ['warmup', 'cooldown'].includes(fill.type) ? 'EF' : fill.label;
+      set('.type-select', normalizedType);
+      set('.label-input', normalizedLabel);
       set('.duration-type-select', fill.duration_type);
       set('.duration-input', fill.duration_value);
       set('.target-type-select', fill.target_type);
