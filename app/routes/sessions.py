@@ -27,6 +27,7 @@ from app.models import (
     User,
 )
 from app.services import garmin_client
+from app.services.session_cleanup import delete_sessions_safely
 from app.services.workout_builder import (
     estimate_duration_and_distance,
     pace_str_to_min_per_km,
@@ -832,7 +833,7 @@ async def admin_delete_session(
     s = db.get(Session, session_id)
     if s is None or s.athlete_id != user.id:
         raise HTTPException(404)
-    db.delete(s)
+    delete_sessions_safely(db, [s])
     db.commit()
     return RedirectResponse(url="/admin", status_code=303)
 
