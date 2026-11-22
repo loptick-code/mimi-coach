@@ -8,9 +8,8 @@ from typing import Optional
 # Les allures EF des plans 10 km et semi ont une plage de 30 s/km centrée sur 4:54.
 REFERENCE_EF_SECONDS_PER_KM = 4 * 60 + 54
 # Le profil d'allures est commun à l'athlète, quel que soit l'objectif choisi.
-# Ces valeurs sont les références actuellement présentes dans les plans 10 km
-# et semi. Les références Aérobie et Marathon doivent être confirmées avec la
-# source de référence finale avant de les considérer comme définitives.
+# Ces valeurs sont les références présentes dans les plans 10 km et semi, avec
+# l'ancre marathon fournie ensuite par Valentin.
 PACE_REFERENCE_PROFILE: dict[str, int] = {
     "s60": 3 * 60 + 36,
     "s30": 3 * 60 + 24,
@@ -20,6 +19,7 @@ PACE_REFERENCE_PROFILE: dict[str, int] = {
     "aerobic": 4 * 60 + 28,
     "race_10k": 3 * 60 + 22,
     "race_half": 3 * 60 + 33,
+    "race_marathon": 4 * 60 + 8,
 }
 
 PACE_LABELS: dict[str, str] = {

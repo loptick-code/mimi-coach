@@ -27,6 +27,7 @@ class TrainingPaceTests(unittest.TestCase):
         marathon_targets = calculate_pace_targets("marathon", 300, 330)
         self.assertEqual(marathon_targets["s60"], 231)
         self.assertEqual(marathon_targets["race_half"], 228)
+        self.assertEqual(marathon_targets["race_marathon"], 266)
 
 
 if __name__ == "__main__":

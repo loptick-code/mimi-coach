@@ -288,8 +288,8 @@ def parse_workout_text(
         day_token = match.group("session_day") or match.group("day") or ""
         session_number = int(match.group("session_number")) if match.group("session_number") else None
         if session_number is not None:
-            if not 1 <= session_number <= 4:
-                raise WorkoutTextError(f"Ligne {line_number} : le numéro de séance doit être entre 1 et 4.")
+            if not 1 <= session_number <= 6:
+                raise WorkoutTextError(f"Ligne {line_number} : le numéro de séance doit être entre 1 et 6.")
             weekday = session_number - 1
         else:
             weekday = DAY_INDEX.get(_norm(day_token))
@@ -332,9 +332,9 @@ def parse_workout_text(
         by_week.setdefault(workout.week_number, []).append(workout)
     omitted: list[ParsedWorkout] = []
     for week_number, week_workouts in by_week.items():
-        if len(week_workouts) > 4:
-            raise WorkoutTextError(f"La semaine {week_number} contient plus de 4 séances, ce qui n'est pas pris en charge.")
-        if sessions_per_week == 3:
+        if len(week_workouts) > 6:
+            raise WorkoutTextError(f"La semaine {week_number} contient plus de 6 séances. Les séances 5 et 6 sont possibles manuellement, au-delà il faut scinder la saisie.")
+        if sessions_per_week == 3 and len(week_workouts) <= 4:
             explicitly_numbered = all(workout.session_number is not None for workout in week_workouts)
             numbered_third = [workout for workout in week_workouts if workout.session_number == 3]
             if numbered_third:

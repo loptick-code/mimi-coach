@@ -61,6 +61,17 @@ class WorkoutTextParserTests(unittest.TestCase):
         self.assertEqual([item.session_number for item in result.workouts], [1, 2, 4])
         self.assertEqual([item.session_number for item in result.omitted_workouts], [3])
 
+    def test_manual_fifth_and_sixth_sessions_are_allowed(self):
+        result = parse_workout_text(
+            "Semaine 1\nSéance 1 : 40 min EF\nSéance 2 : 30 min S60\nSéance 3 : 40 min EF\nSéance 4 : 60 min EF\nSéance 5 : 30 min récupération\nSéance 6 : 20 min EF",
+            start_date=self.start,
+            pace_targets=self.targets,
+            ef_range=self.ef,
+            sessions_per_week=3,
+        )
+        self.assertEqual([item.session_number for item in result.workouts], [1, 2, 3, 4, 5, 6])
+        self.assertEqual(result.omitted_workouts, [])
+
     def test_race_week_removes_explicit_session_three(self):
         result = parse_workout_text(
             "Semaine 13\nSéance 2 (mardi) : 20 min EF\nSéance 3 (jeudi) : 20 min EF\nSéance 4 (dimanche) : 10 km à allure 10 km",
