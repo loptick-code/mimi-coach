@@ -385,8 +385,8 @@ def _load_marathon() -> PlanDefinition:
     return PlanDefinition("marathon", "Marathon", 16, 379, 42_195, workouts=workouts)
 
 
-def _generic_marathon_preparation(week_number: int, phase_week: int) -> list[PlanWorkout]:
-    """Crée une semaine de base avant le cycle marathon spécifique.
+def _generic_preparation_workouts(week_number: int, phase_week: int) -> list[PlanWorkout]:
+    """Crée une semaine de base avant le cycle spécifique de l'objectif.
 
     Cette phase provisoire reste volontairement générale : elle utilise l'EF,
     quelques sprints aux sensations et une sortie longue progressive, sans
@@ -498,14 +498,12 @@ def generate_schedule(
     current_monday = earliest - timedelta(days=earliest.weekday())
     preparation_weeks = (
         max(0, (first_monday - current_monday).days // 7)
-        if goal == "marathon"
-        else 0
     )
     scheduled: list[ScheduledWorkout] = []
 
     for phase_week in range(1, preparation_weeks + 1):
         overall_week = phase_week
-        for workout in _generic_marathon_preparation(overall_week, phase_week):
+        for workout in _generic_preparation_workouts(overall_week, phase_week):
             if sessions_per_week == 3 and workout.session_number == 3:
                 continue
             workout_date = current_monday + timedelta(
