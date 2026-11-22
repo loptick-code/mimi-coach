@@ -162,14 +162,29 @@ def _store_profile(db: DBSession, user: User, data: dict[str, Any], form: Any, e
 
 
 def _delete_generated_future_sessions(db: DBSession, user: User, state: TrainingPlanState | None) -> None:
-    if state is None:
-        return
     today = date.today()
-    sessions_to_delete: list[Session] = []
-    for raw_id in _json_list(state.generated_session_ids_json):
-        session = db.get(Session, int(raw_id))
-        if session and session.athlete_id == user.id and session.date >= today and session.validated_at is None:
-            sessions_to_delete.append(session)
+    sessions_by_id: dict[int, Session] = {}
+    if state is not None:
+        for raw_id in _json_list(state.generated_session_ids_json):
+            session = db.get(Session, int(raw_id))
+            if session and session.athlete_id == user.id and session.date >= today and session.validated_at is None:
+                sessions_by_id[session.id] = session
+
+    # Fallback for plans created before TrainingPlanState was populated, or
+    # after a generation failed halfway through. Generated sessions are
+    # identifiable by their Plan ... description, while manual sessions use
+    # a different description and are preserved.
+    orphaned_generated = db.exec(
+        select(Session)
+        .where(Session.athlete_id == user.id)
+        .where(Session.date >= today)
+        .where(Session.validated_at.is_(None))
+        .where(Session.description.like("Plan %"))
+    ).all()
+    for session in orphaned_generated:
+        sessions_by_id[session.id] = session
+
+    sessions_to_delete = list(sessions_by_id.values())
     delete_sessions_safely(db, sessions_to_delete)
 
 
