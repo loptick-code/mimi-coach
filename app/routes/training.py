@@ -163,12 +163,20 @@ def _store_profile(db: DBSession, user: User, data: dict[str, Any], form: Any, e
 
 def _delete_generated_future_sessions(db: DBSession, user: User, state: TrainingPlanState | None) -> None:
     today = date.today()
+    tracked_ids = {
+        int(raw_id)
+        for raw_id in _json_list(state.generated_session_ids_json)
+    } if state is not None else set()
     sessions_by_id: dict[int, Session] = {}
-    if state is not None:
-        for raw_id in _json_list(state.generated_session_ids_json):
-            session = db.get(Session, int(raw_id))
-            if session and session.athlete_id == user.id and session.date >= today and session.validated_at is None:
-                sessions_by_id[session.id] = session
+    if tracked_ids:
+        tracked_sessions = db.exec(
+            select(Session)
+            .where(Session.id.in_(tracked_ids))
+            .where(Session.athlete_id == user.id)
+            .where(Session.date >= today)
+            .where(Session.validated_at.is_(None))
+        ).all()
+        sessions_by_id.update({session.id: session for session in tracked_sessions})
 
     # Fallback for plans created before TrainingPlanState was populated, or
     # after a generation failed halfway through. Generated sessions are
