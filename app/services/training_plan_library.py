@@ -138,7 +138,11 @@ def _step_from_segment(segment: str) -> Optional[PlanStep]:
     source_fast = min(paces) if paces else None
     source_slow = max(paces) if paces else None
     normalized = _norm(segment)
-    if key in {"ef", "tempo", "s60", "s30", "vma", "sweet_spot", "aerobic", "race_10k", "race_half", "race_marathon"}:
+    if re.search(r"\b(?:echauffement|warm ?up|retour au calme|cool ?down)\b", normalized):
+        key, step_type = "ef", "other"
+    elif re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations|effort libre)\b", normalized):
+        key, step_type = None, "interval"
+    elif key in {"ef", "tempo", "s60", "s30", "vma", "sweet_spot", "aerobic", "race_10k", "race_half", "race_marathon"}:
         step_type = "interval"
     elif re.search(r"\b(?:recup|lente?|repos)\b", normalized):
         key, step_type = None, "recovery"
@@ -157,7 +161,7 @@ def _step_from_segment(segment: str) -> Optional[PlanStep]:
         }.get(key, label)
     elif step_type == "recovery":
         label = "Récupération"
-    elif re.search(r"\b(?:rapide|sprint|sensations|lignes droites)\b", normalized):
+    elif re.search(r"\b(?:rapide|sprint|sensations|lignes droites|effort libre)\b", normalized):
         label = "Sprint"
     return PlanStep(
         label=label[:120],
@@ -348,11 +352,25 @@ def _load_marathon() -> PlanDefinition:
                 source_fast = round(1000 / high) if high else None
                 source_slow = round(1000 / low) if low else None
                 label = str(source.get("label") or "Course")
-                key = _target_key(label)
-                if key is None and label.lower() in {"lent", "recuperation", "récupération"}:
+                source_type = str(source.get("type", "interval")).split(".")[-1].lower()
+                normalized_label = _norm(label)
+                if source_type in {"warmup", "cooldown"} or re.search(
+                    r"\b(?:echauffement|warm ?up|retour au calme|cool ?down)\b", normalized_label
+                ):
+                    label = "EF"
+                    key = "ef"
+                    step_type = "other"
+                elif re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations|effort libre)\b", normalized_label):
+                    label = "Sprint"
+                    key = None
+                    step_type = "interval"
+                elif key := _target_key(label):
+                    step_type = source_type
+                elif normalized_label in {"lent", "recuperation", "récupération"} or source_type == "recovery":
+                    label = "Récupération"
                     step_type = "recovery"
                 else:
-                    step_type = str(source.get("type", "interval")).split(".")[-1].lower()
+                    step_type = source_type
                 converted.append(PlanStep(
                     label=label, duration_seconds=duration_seconds, distance_m=distance_m,
                     target_key=key, source_pace_fast=source_fast, source_pace_slow=source_slow,
