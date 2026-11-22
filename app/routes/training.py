@@ -1,4 +1,4 @@
-"""Onboarding, profil d'allures et import texte déterministe des séances."""
+"""Onboarding, génération de plan et import texte déterministe."""
 from __future__ import annotations
 
 import json
@@ -17,6 +17,7 @@ from app.models import (
     Step,
     StepType,
     TargetType,
+    TrainingPlanState,
     TrainingProfile,
     User,
 )
@@ -28,33 +29,22 @@ from app.services.training_paces import (
     supported_goal,
     validate_ef_range,
 )
-from app.services.workout_builder import (
-    estimate_duration_and_distance,
-    pace_min_per_km_to_m_per_s,
-)
-from app.services.workout_text_parser import (
-    ParsedWorkout,
-    WorkoutTextError,
-    parse_workout_text,
-)
+from app.services.training_plan_library import PlanStep, generate_schedule
+from app.services.workout_builder import estimate_duration_and_distance, pace_min_per_km_to_m_per_s
+from app.services.workout_text_parser import ParsedWorkout, WorkoutTextError, parse_workout_text
 from app.templates import templates
 
 router = APIRouter()
-
-EXPERIENCE_CHOICES = {"beginner", "returning", "regular"}
 GOAL_LABELS = {"10k": "10 km", "half": "Semi-marathon", "marathon": "Marathon"}
-ALL_DAYS = [
-    ("lundi", "Lundi"), ("mardi", "Mardi"), ("mercredi", "Mercredi"),
-    ("jeudi", "Jeudi"), ("vendredi", "Vendredi"), ("samedi", "Samedi"),
-    ("dimanche", "Dimanche"),
-]
 PACE_KEYS = list(PACE_LABELS)
 
 
 def _profile(db: DBSession, user: User) -> TrainingProfile | None:
-    return db.exec(
-        select(TrainingProfile).where(TrainingProfile.user_id == user.id)
-    ).first()
+    return db.exec(select(TrainingProfile).where(TrainingProfile.user_id == user.id)).first()
+
+
+def _plan_state(db: DBSession, user: User) -> TrainingPlanState | None:
+    return db.exec(select(TrainingPlanState).where(TrainingPlanState.user_id == user.id)).first()
 
 
 def _json_dict(raw: str | None) -> dict[str, int]:
@@ -62,9 +52,7 @@ def _json_dict(raw: str | None) -> dict[str, int]:
         value = json.loads(raw or "{}")
     except (TypeError, json.JSONDecodeError):
         return {}
-    if not isinstance(value, dict):
-        return {}
-    return {str(key): int(number) for key, number in value.items() if isinstance(number, (int, float))}
+    return {str(key): int(number) for key, number in value.items() if isinstance(number, (int, float))} if isinstance(value, dict) else {}
 
 
 def _json_list(raw: str | None) -> list[str]:
@@ -75,91 +63,16 @@ def _json_list(raw: str | None) -> list[str]:
     return [str(item) for item in value] if isinstance(value, list) else []
 
 
-def _form_profile(form: Any) -> dict[str, Any]:
-    goal = str(form.get("goal") or "").strip()
-    if not supported_goal(goal):
-        raise ValueError("Choisis un objectif parmi 10 km, semi-marathon ou marathon.")
-
-    experience = str(form.get("experience") or "regular").strip()
-    if experience not in EXPERIENCE_CHOICES:
-        raise ValueError("Choisis un niveau d'expérience valide.")
-
-    try:
-        runs_per_week = int(form.get("current_runs_per_week") or 0)
-    except (TypeError, ValueError):
-        raise ValueError("Le nombre de sorties actuelles doit être un nombre entier.")
-    if not 0 <= runs_per_week <= 7:
-        raise ValueError("Le nombre de sorties actuelles doit être entre 0 et 7.")
-
-    longest_raw = str(form.get("longest_run_km") or "").strip().replace(",", ".")
-    try:
-        longest_run = float(longest_raw) if longest_raw else None
-    except ValueError:
-        raise ValueError("La sortie la plus longue doit être une distance en kilomètres.")
-    if longest_run is not None and not 0 <= longest_run <= 100:
-        raise ValueError("La sortie la plus longue doit être entre 0 et 100 km.")
-
-    try:
-        sessions_per_week = int(form.get("sessions_per_week") or 4)
-    except (TypeError, ValueError):
-        raise ValueError("Choisis 3 ou 4 séances par semaine.")
-    if sessions_per_week not in (3, 4):
-        raise ValueError("Choisis 3 ou 4 séances par semaine.")
-
-    available_days = [str(day).strip().lower() for day in form.getlist("available_days")]
-    valid_days = {day for day, _ in ALL_DAYS}
-    if any(day not in valid_days for day in available_days):
-        raise ValueError("Un des jours sélectionnés n'est pas reconnu.")
-    available_days = list(dict.fromkeys(available_days))
-    if available_days and len(available_days) < sessions_per_week:
-        raise ValueError(f"Sélectionne au moins {sessions_per_week} jours disponibles, ou ne précise aucun jour.")
-
-    race_date_raw = str(form.get("race_date") or "").strip()
-    try:
-        race_date = date.fromisoformat(race_date_raw) if race_date_raw else None
-    except ValueError:
-        raise ValueError("La date de course est invalide.")
-
-    ef_fast_raw = str(form.get("ef_fast") or "").strip()
-    ef_slow_raw = str(form.get("ef_slow") or "").strip()
-    if bool(ef_fast_raw) != bool(ef_slow_raw):
-        raise ValueError("Renseigne les deux bornes de l'EF, ou laisse les deux vides.")
-    if ef_fast_raw:
-        ef_fast = pace_to_seconds(ef_fast_raw)
-        ef_slow = pace_to_seconds(ef_slow_raw)
-        validate_ef_range(ef_fast, ef_slow)
-    else:
-        ef_fast = ef_slow = None
-
-    return {
-        "goal": goal,
-        "race_date": race_date,
-        "experience": experience,
-        "current_runs_per_week": runs_per_week,
-        "longest_run_km": longest_run,
-        "sessions_per_week": sessions_per_week,
-        "available_days": available_days,
-        "ef_fast_sec_per_km": ef_fast,
-        "ef_slow_sec_per_km": ef_slow,
-    }
-
-
 def _profile_context(profile: TrainingProfile | None) -> dict[str, Any]:
     if profile is None:
         return {
-            "goal": "10k", "race_date": "", "experience": "regular",
-            "current_runs_per_week": 3, "longest_run_km": "",
-            "sessions_per_week": 4, "available_days": [],
+            "goal": "10k", "race_date": "", "sessions_per_week": 4,
             "ef_fast": "", "ef_slow": "", "pace_targets": {}, "manual_paces": [],
         }
     return {
         "goal": profile.goal,
         "race_date": profile.race_date.isoformat() if profile.race_date else "",
-        "experience": profile.experience,
-        "current_runs_per_week": profile.current_runs_per_week,
-        "longest_run_km": profile.longest_run_km if profile.longest_run_km is not None else "",
         "sessions_per_week": profile.sessions_per_week,
-        "available_days": [day for day in profile.available_days.split(",") if day],
         "ef_fast": seconds_to_pace(profile.ef_fast_sec_per_km),
         "ef_slow": seconds_to_pace(profile.ef_slow_sec_per_km),
         "pace_targets": _json_dict(profile.pace_targets_json),
@@ -169,59 +82,74 @@ def _profile_context(profile: TrainingProfile | None) -> dict[str, Any]:
 
 def _pace_rows(targets: dict[str, int], manual: list[str] | set[str]) -> list[dict[str, Any]]:
     return [
-        {
-            "key": key,
-            "label": PACE_LABELS[key],
-            "value": seconds_to_pace(targets.get(key)),
-            "manual": key in manual,
-        }
+        {"key": key, "label": PACE_LABELS[key], "value": seconds_to_pace(targets.get(key)), "manual": key in manual}
         for key in PACE_KEYS
     ]
 
 
-def _store_profile(
-    db: DBSession,
-    user: User,
-    data: dict[str, Any],
-    form: Any,
-    existing: TrainingProfile | None,
-) -> TrainingProfile:
-    auto_targets = {}
-    if data["ef_fast_sec_per_km"] is not None:
-        auto_targets = calculate_pace_targets(
-            data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"]
-        )
+def _form_profile(form: Any) -> dict[str, Any]:
+    goal = str(form.get("goal") or "").strip()
+    if not supported_goal(goal):
+        raise ValueError("Choisis un objectif parmi 10 km, semi-marathon ou marathon.")
 
+    race_date_raw = str(form.get("race_date") or "").strip()
+    if not race_date_raw:
+        raise ValueError("La date de course est obligatoire.")
+    try:
+        race_date = date.fromisoformat(race_date_raw)
+    except ValueError as exc:
+        raise ValueError("La date de course est invalide.") from exc
+    if race_date < date.today():
+        raise ValueError("La date de course doit être aujourd'hui ou dans le futur.")
+
+    try:
+        sessions_per_week = int(form.get("sessions_per_week") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Choisis 3 ou 4 séances par semaine.") from exc
+    if sessions_per_week not in (3, 4):
+        raise ValueError("Choisis 3 ou 4 séances par semaine.")
+
+    ef_fast_raw = str(form.get("ef_fast") or "").strip()
+    ef_slow_raw = str(form.get("ef_slow") or "").strip()
+    if not ef_fast_raw or not ef_slow_raw:
+        raise ValueError("La plage EF est obligatoire. Tu peux saisir une estimation et la modifier ensuite.")
+    ef_fast = pace_to_seconds(ef_fast_raw)
+    ef_slow = pace_to_seconds(ef_slow_raw)
+    validate_ef_range(ef_fast, ef_slow)
+    return {
+        "goal": goal,
+        "race_date": race_date,
+        "sessions_per_week": sessions_per_week,
+        "ef_fast_sec_per_km": ef_fast,
+        "ef_slow_sec_per_km": ef_slow,
+    }
+
+
+def _store_profile(db: DBSession, user: User, data: dict[str, Any], form: Any, existing: TrainingProfile | None) -> TrainingProfile:
+    auto_targets = calculate_pace_targets(data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"])
+    old_targets = _json_dict(existing.pace_targets_json) if existing else {}
+    old_manual = set(_json_list(existing.manual_paces_json)) if existing else set()
     reset_all = str(form.get("reset_auto_paces") or "").lower() in ("1", "true", "on", "yes")
     new_targets: dict[str, int] = {}
     manual_paces: set[str] = set()
-
     for key in PACE_KEYS:
         raw_value = str(form.get(f"pace_{key}") or "").strip()
         manual_flag = str(form.get(f"manual_{key}") or "").lower() in ("1", "true", "on", "yes")
-        if raw_value:
-            try:
-                submitted_seconds = pace_to_seconds(raw_value)
-            except ValueError:
-                raise ValueError(f"Allure invalide pour {PACE_LABELS[key]}.")
-        else:
-            submitted_seconds = None
-
-        if not reset_all and manual_flag and submitted_seconds is not None:
-            new_targets[key] = submitted_seconds
+        submitted = pace_to_seconds(raw_value) if raw_value else None
+        if not reset_all and manual_flag and submitted is not None:
+            new_targets[key] = submitted
             manual_paces.add(key)
         elif key in auto_targets:
             new_targets[key] = auto_targets[key]
+        elif not reset_all and key in old_manual and key in old_targets:
+            new_targets[key] = old_targets[key]
+            manual_paces.add(key)
 
     if existing is None:
         existing = TrainingProfile(user_id=user.id)
     existing.goal = data["goal"]
     existing.race_date = data["race_date"]
-    existing.experience = data["experience"]
-    existing.current_runs_per_week = data["current_runs_per_week"]
-    existing.longest_run_km = data["longest_run_km"]
     existing.sessions_per_week = data["sessions_per_week"]
-    existing.available_days = ",".join(data["available_days"])
     existing.ef_fast_sec_per_km = data["ef_fast_sec_per_km"]
     existing.ef_slow_sec_per_km = data["ef_slow_sec_per_km"]
     existing.pace_targets_json = json.dumps(new_targets, ensure_ascii=False)
@@ -232,19 +160,106 @@ def _store_profile(
     return existing
 
 
-def _profile_form_response(
-    request: Request,
-    profile_data: dict[str, Any],
-    *,
-    error: str | None = None,
-    settings_mode: bool = False,
-    saved: bool = False,
-):
-    auto_targets = {}
-    if profile_data.get("ef_fast_sec_per_km") is not None:
-        auto_targets = calculate_pace_targets(
-            profile_data["goal"], profile_data["ef_fast_sec_per_km"], profile_data["ef_slow_sec_per_km"]
+def _delete_generated_future_sessions(db: DBSession, user: User, state: TrainingPlanState | None) -> None:
+    if state is None:
+        return
+    today = date.today()
+    for raw_id in _json_list(state.generated_session_ids_json):
+        session = db.get(Session, int(raw_id))
+        if session and session.athlete_id == user.id and session.date >= today and session.validated_at is None:
+            db.delete(session)
+    db.flush()
+
+
+def _create_plan_steps(db: DBSession, session_id: int, plan_steps: list[PlanStep]) -> list[Step]:
+    created: list[Step] = []
+    order = 0
+
+    def add(step_spec: PlanStep, parent_id: int | None = None) -> None:
+        nonlocal order
+        order += 1
+        is_repeat = step_spec.repeat_count is not None and bool(step_spec.children)
+        db_step = Step(
+            session_id=session_id,
+            order=order,
+            parent_repeat_id=parent_id,
+            kind="repeat" if is_repeat else "step",
+            repeat_count=step_spec.repeat_count if is_repeat else None,
+            type=StepType(step_spec.step_type if step_spec.step_type in {item.value for item in StepType} else StepType.other.value),
+            label=step_spec.label[:120] if step_spec.label else None,
+            duration_type=DurationType.distance if step_spec.distance_m is not None else DurationType.time,
+            duration_value=step_spec.distance_m if step_spec.distance_m is not None else step_spec.duration_seconds,
+            target_type=TargetType.no_target,
         )
+        if not is_repeat and step_spec.source_pace_fast is not None:
+            slow = step_spec.source_pace_slow or step_spec.source_pace_fast
+            fast = step_spec.source_pace_fast
+            db_step.target_type = TargetType.pace
+            db_step.target_low = pace_min_per_km_to_m_per_s(slow / 60)
+            db_step.target_high = pace_min_per_km_to_m_per_s(fast / 60)
+        db.add(db_step)
+        db.flush()
+        created.append(db_step)
+        if is_repeat:
+            for child in step_spec.children:
+                add(child, db_step.id)
+
+    for item in plan_steps:
+        add(item)
+    return created
+
+
+def _apply_manual_paces(plan_steps: list[PlanStep], manual_targets: dict[str, int]) -> None:
+    for step in plan_steps:
+        if step.target_key in manual_targets:
+            step.source_pace_fast = manual_targets[step.target_key]
+            step.source_pace_slow = manual_targets[step.target_key]
+        _apply_manual_paces(step.children, manual_targets)
+
+
+def _generate_plan(db: DBSession, user: User, profile: TrainingProfile) -> TrainingPlanState:
+    _delete_generated_future_sessions(db, user, _plan_state(db, user))
+    _, schedule = generate_schedule(
+        profile.goal,
+        profile.race_date,
+        profile.ef_fast_sec_per_km,
+        profile.ef_slow_sec_per_km,
+        profile.sessions_per_week,
+    )
+    manual_keys = set(_json_list(profile.manual_paces_json))
+    stored_targets = _json_dict(profile.pace_targets_json)
+    manual_targets = {key: stored_targets[key] for key in manual_keys if key in stored_targets}
+    generated_ids: list[str] = []
+    for planned in schedule:
+        _apply_manual_paces(planned.steps, manual_targets)
+        session = Session(
+            athlete_id=user.id,
+            date=planned.date,
+            name=f"S{planned.plan_week} · {planned.name}"[:100],
+            description=f"Plan {GOAL_LABELS[profile.goal]}, semaine {planned.plan_week}. {planned.description}"[:2000],
+            difficulty=max(1, min(4, planned.difficulty)),
+        )
+        db.add(session)
+        db.flush()
+        steps = _create_plan_steps(db, session.id, planned.steps)
+        session.estimated_duration_min, session.estimated_distance_km = estimate_duration_and_distance(steps)
+        db.add(session)
+        generated_ids.append(str(session.id))
+
+    state = _plan_state(db, user)
+    if state is None:
+        state = TrainingPlanState(user_id=user.id)
+    state.plan_key = profile.goal
+    state.race_date = profile.race_date
+    state.generated_session_ids_json = json.dumps(generated_ids)
+    db.add(state)
+    db.commit()
+    db.refresh(state)
+    return state
+
+
+def _profile_form_response(request: Request, profile_data: dict[str, Any], *, error: str | None = None, settings_mode: bool = False, saved: bool = False):
+    auto_targets = calculate_pace_targets(profile_data["goal"], profile_data["ef_fast_sec_per_km"], profile_data["ef_slow_sec_per_km"]) if profile_data.get("ef_fast_sec_per_km") else {}
     targets = profile_data.get("pace_targets") or auto_targets
     return templates.TemplateResponse(
         request,
@@ -252,19 +267,13 @@ def _profile_form_response(
         {
             "user": request.state.user,
             "profile": profile_data,
-            "days": ALL_DAYS,
             "goal_labels": GOAL_LABELS,
             "pace_rows": _pace_rows(targets, profile_data.get("manual_paces", [])),
-            "auto_targets": auto_targets,
             "error": error,
             "settings_mode": settings_mode,
             "saved": saved,
         },
     )
-
-
-def _get_user(request: Request) -> User:
-    return request.state.user
 
 
 async def _form_or_error(request: Request) -> tuple[dict[str, Any] | None, Any, str | None]:
@@ -276,119 +285,86 @@ async def _form_or_error(request: Request) -> tuple[dict[str, Any] | None, Any, 
 
 
 @router.get("/onboarding")
-async def onboarding_page(
-    request: Request,
-    user: User = Depends(require_user),
-    db: DBSession = Depends(get_session),
-):
+async def onboarding_page(request: Request, user: User = Depends(require_user), db: DBSession = Depends(get_session)):
     request.state.user = user
-    return _profile_form_response(request, _profile_context(_profile(db, user)))
+    profile = _profile(db, user)
+    return _profile_form_response(request, _profile_context(profile))
 
 
 @router.post("/onboarding/preview")
-async def onboarding_preview(
-    request: Request,
-    user: User = Depends(require_user),
-):
+async def onboarding_preview(request: Request, user: User = Depends(require_user)):
     request.state.user = user
     data, form, error = await _form_or_error(request)
+    context = _profile_context(None)
     if error:
-        context = _profile_context(None)
-        context.update({key: form.get(key, context.get(key, "")) for key in (
-            "goal", "race_date", "experience", "current_runs_per_week", "longest_run_km", "sessions_per_week", "ef_fast", "ef_slow"
-        )})
-        context["available_days"] = [str(day) for day in form.getlist("available_days")]
+        context.update({"goal": form.get("goal", context["goal"]), "race_date": form.get("race_date", ""), "sessions_per_week": form.get("sessions_per_week", 4), "ef_fast": form.get("ef_fast", ""), "ef_slow": form.get("ef_slow", "")})
         return _profile_form_response(request, context, error=error)
-
-    targets = calculate_pace_targets(data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"]) if data["ef_fast_sec_per_km"] else {}
+    try:
+        plan, schedule = generate_schedule(data["goal"], data["race_date"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"], data["sessions_per_week"])
+    except (ValueError, KeyError, ImportError) as exc:
+        return _profile_form_response(request, context, error=f"Impossible de charger ce plan : {exc}")
+    targets = calculate_pace_targets(data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"])
     profile_data = {
         **data,
-        "race_date": data["race_date"].isoformat() if data["race_date"] else "",
-        "available_days": data["available_days"],
+        "race_date": data["race_date"].isoformat(),
         "ef_fast": seconds_to_pace(data["ef_fast_sec_per_km"]),
         "ef_slow": seconds_to_pace(data["ef_slow_sec_per_km"]),
         "pace_targets": targets,
         "manual_paces": [],
     }
-    return templates.TemplateResponse(
-        request,
-        "training_profile_preview.html",
-        {
-            "user": user,
-            "profile": profile_data,
-            "goal_labels": GOAL_LABELS,
-            "pace_rows": _pace_rows(targets, []),
-            "has_ef": bool(data["ef_fast_sec_per_km"]),
-            "has_auto_reference": data["goal"] in ("10k", "half"),
-            "base_warning": (
-                data["experience"] in ("beginner", "returning")
-                or data["current_runs_per_week"] < data["sessions_per_week"]
-            ),
-        },
-    )
+    return templates.TemplateResponse(request, "training_profile_preview.html", {
+        "user": user,
+        "profile": profile_data,
+        "goal_labels": GOAL_LABELS,
+        "pace_rows": _pace_rows(targets, []),
+        "plan": plan,
+        "scheduled_count": len(schedule),
+        "schedule_start": schedule[0].date if schedule else data["race_date"],
+        "schedule_end": schedule[-1].date if schedule else data["race_date"],
+    })
 
 
 @router.post("/onboarding/save")
-async def onboarding_save(
-    request: Request,
-    user: User = Depends(require_user),
-    db: DBSession = Depends(get_session),
-):
+async def onboarding_save(request: Request, user: User = Depends(require_user), db: DBSession = Depends(get_session)):
+    request.state.user = user
     form = await request.form()
     try:
         data = _form_profile(form)
-        existing = _profile(db, user)
-        _store_profile(db, user, data, form, existing)
-    except ValueError as exc:
-        request.state.user = user
-        context = _profile_context(None)
-        context.update({key: form.get(key, context.get(key, "")) for key in (
-            "goal", "race_date", "experience", "current_runs_per_week", "longest_run_km", "sessions_per_week", "ef_fast", "ef_slow"
-        )})
-        context["available_days"] = [str(day) for day in form.getlist("available_days")]
-        return _profile_form_response(request, context, error=str(exc))
-    return RedirectResponse(url="/programme/texte", status_code=303)
+        profile = _store_profile(db, user, data, form, _profile(db, user))
+        user.pace_adjustment_pct = 0.0
+        db.add(user)
+        db.commit()
+        _generate_plan(db, user, profile)
+    except (ValueError, KeyError, ImportError) as exc:
+        return _profile_form_response(request, _profile_context(_profile(db, user)), error=str(exc))
+    return RedirectResponse(url="/", status_code=303)
 
 
 @router.get("/settings/entrainement")
-async def training_settings_page(
-    request: Request,
-    user: User = Depends(require_user),
-    db: DBSession = Depends(get_session),
-):
+async def training_settings_page(request: Request, user: User = Depends(require_user), db: DBSession = Depends(get_session)):
     request.state.user = user
     profile = _profile(db, user)
     if profile is None:
         return RedirectResponse(url="/onboarding", status_code=303)
-    context = _profile_context(profile)
-    return _profile_form_response(
-        request, context, settings_mode=True, saved=request.query_params.get("saved") == "1"
-    )
+    return _profile_form_response(request, _profile_context(profile), settings_mode=True, saved=request.query_params.get("saved") == "1")
 
 
 @router.post("/settings/entrainement")
-async def save_training_settings(
-    request: Request,
-    user: User = Depends(require_user),
-    db: DBSession = Depends(get_session),
-):
+async def save_training_settings(request: Request, user: User = Depends(require_user), db: DBSession = Depends(get_session)):
     request.state.user = user
     data, form, error = await _form_or_error(request)
     existing = _profile(db, user)
     if error:
-        context = _profile_context(existing)
-        context.update({key: form.get(key, context.get(key, "")) for key in (
-            "goal", "race_date", "experience", "current_runs_per_week", "longest_run_km", "sessions_per_week", "ef_fast", "ef_slow"
-        )})
-        context["available_days"] = [str(day) for day in form.getlist("available_days")]
-        return _profile_form_response(request, context, error=error, settings_mode=True)
+        return _profile_form_response(request, _profile_context(existing), error=error, settings_mode=True)
     try:
-        _store_profile(db, user, data, form, existing)
-    except ValueError as exc:
-        context = _profile_context(existing)
-        return _profile_form_response(request, context, error=str(exc), settings_mode=True)
+        profile = _store_profile(db, user, data, form, existing)
+        user.pace_adjustment_pct = 0.0
+        db.add(user)
+        db.commit()
+        _generate_plan(db, user, profile)
+    except (ValueError, KeyError, ImportError) as exc:
+        return _profile_form_response(request, _profile_context(existing), error=str(exc), settings_mode=True)
     return RedirectResponse(url="/settings/entrainement?saved=1", status_code=303)
-
 
 def _get_pace_data(profile: TrainingProfile) -> tuple[dict[str, int], tuple[int, int] | None]:
     targets = _json_dict(profile.pace_targets_json)
@@ -431,11 +407,7 @@ def _text_preview_context(
             status_code=400,
         )
 
-    available_days = {day for day in profile.available_days.split(",") if day}
     warnings = []
-    for workout in result.workouts:
-        if available_days and workout.weekday_label not in available_days:
-            warnings.append(f"{workout.weekday_label.capitalize()} n'est pas dans tes jours disponibles.")
     dates = [workout.date for workout in result.workouts]
     if len(set(dates)) != len(dates):
         error = error or "Plusieurs séances sont prévues le même jour. Modifie le texte avant de confirmer."
@@ -472,6 +444,7 @@ def _text_preview_context(
             "steps": steps,
             "week_number": workout.week_number,
             "weekday_label": workout.weekday_label,
+            "session_number": workout.session_number,
         })
     omitted_rows = [
         {"week_number": workout.week_number, "weekday_label": workout.weekday_label, "name": workout.name, "session_number": workout.session_number}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -14,7 +15,6 @@ from app.auth import current_user, require_user
 from app.db import get_session
 from app.models import (
     FEEDBACK_DELTA,
-    PACE_ADJUSTMENT_BOUND,
     DurationType,
     Session,
     SessionFeedback,
@@ -30,9 +30,41 @@ from app.services.workout_builder import (
     pace_str_to_min_per_km,
     pace_min_per_km_to_m_per_s,
 )
+from app.services.training_paces import calculate_pace_targets, scale_ef_range
 from app.templates import templates
 
 router = APIRouter()
+
+
+def _update_current_profile_from_feedback(
+    profile: TrainingProfile | None,
+    old_feedback: SessionFeedback | None,
+    new_feedback: SessionFeedback,
+) -> None:
+    """Met à jour l'EF visible et les allures auto sans toucher aux valeurs manuelles."""
+    if profile is None or profile.ef_fast_sec_per_km is None or profile.ef_slow_sec_per_km is None:
+        return
+
+    fast = profile.ef_fast_sec_per_km
+    slow = profile.ef_slow_sec_per_km
+    if old_feedback is not None and FEEDBACK_DELTA[old_feedback]:
+        fast, slow = scale_ef_range(fast, slow, 1 / (1 + FEEDBACK_DELTA[old_feedback] / 100))
+    if FEEDBACK_DELTA[new_feedback]:
+        fast, slow = scale_ef_range(fast, slow, 1 + FEEDBACK_DELTA[new_feedback] / 100)
+
+    profile.ef_fast_sec_per_km = fast
+    profile.ef_slow_sec_per_km = slow
+    try:
+        manual_keys = set(json.loads(profile.manual_paces_json or "[]"))
+    except json.JSONDecodeError:
+        manual_keys = set()
+    try:
+        targets = json.loads(profile.pace_targets_json or "{}")
+    except json.JSONDecodeError:
+        targets = {}
+    auto_targets = calculate_pace_targets(profile.goal, fast, slow)
+    targets.update({key: value for key, value in auto_targets.items() if key not in manual_keys})
+    profile.pace_targets_json = json.dumps(targets, ensure_ascii=False)
 
 
 def _week_bounds(reference: date) -> tuple[date, date]:
@@ -53,7 +85,12 @@ async def home(
     profile = db.exec(
         select(TrainingProfile).where(TrainingProfile.user_id == user.id)
     ).first()
-    if profile is None:
+    if (
+        profile is None
+        or profile.race_date is None
+        or profile.ef_fast_sec_per_km is None
+        or profile.ef_slow_sec_per_km is None
+    ):
         return RedirectResponse(url="/onboarding", status_code=303)
 
     today = date.today()
@@ -304,16 +341,19 @@ async def submit_feedback(
     athlete = db.get(User, s.athlete_id)
     if athlete is None:
         raise HTTPException(404)
+    profile = db.exec(select(TrainingProfile).where(TrainingProfile.user_id == athlete.id)).first()
 
     # Annule l'effet du feedback precedent s'il existe (revient a l'etat pre-validation)
     if s.feedback is not None:
         athlete.pace_adjustment_pct = (athlete.pace_adjustment_pct or 0.0) - FEEDBACK_DELTA[s.feedback]
+    _update_current_profile_from_feedback(profile, s.feedback, new_fb)
 
     # Snapshot AVANT le nouveau delta : ce sont les allures avec lesquelles
     # cette seance a ete prescrite/courue.
     snapshot = athlete.pace_adjustment_pct or 0.0
 
-    # Applique le nouveau feedback (impacte les futures seances uniquement)
+    # Applique le nouveau feedback aux futures séances uniquement. L'ajustement
+    # est cumulatif, sans modifier le plan source.
     athlete.pace_adjustment_pct = (athlete.pace_adjustment_pct or 0.0) + FEEDBACK_DELTA[new_fb]
 
     s.feedback = new_fb
@@ -321,6 +361,8 @@ async def submit_feedback(
     s.pace_adjustment_at_validation = snapshot
 
     db.add(athlete)
+    if profile is not None:
+        db.add(profile)
     db.add(s)
     db.commit()
     return RedirectResponse(
@@ -465,6 +507,10 @@ async def unvalidate(
     if s.feedback is not None and athlete is not None:
         athlete.pace_adjustment_pct = (athlete.pace_adjustment_pct or 0.0) - FEEDBACK_DELTA[s.feedback]
         db.add(athlete)
+        profile = db.exec(select(TrainingProfile).where(TrainingProfile.user_id == athlete.id)).first()
+        if profile is not None:
+            _update_current_profile_from_feedback(profile, s.feedback, SessionFeedback.perfect)
+            db.add(profile)
     s.feedback = None
     s.validated_at = None
     s.pace_adjustment_at_validation = None

@@ -1,30 +1,42 @@
 # Bibliothèque de sources d'entraînement
 
-Ce dossier conserve les plans de référence avant leur conversion en programmes chargés par l'application. Les sources ci-dessous ne sont pas encore importées dynamiquement par l'application.
+Mi Coach associe maintenant chaque objectif à un plan de référence :
 
-## Plans disponibles
+- 10 km : `sources/10km_campus_coach_13_weeks.md`
+- Semi-marathon : `sources/semi_marathon_campus_coach_15_weeks.md`
+- Marathon : les étapes complètes du plan existant dans `scripts/import_marathon_16w.py`
 
-- 10 km, 13 semaines : [`sources/10km_campus_coach_13_weeks.md`](sources/10km_campus_coach_13_weeks.md). Source détaillée fournie par Valentin. Elle décrit notamment les séances clés, mais ne constitue pas encore un programme complet sélectionnable dans l'application.
-- Semi-marathon, 15 semaines : [`sources/semi_marathon_campus_coach_15_weeks.md`](sources/semi_marathon_campus_coach_15_weeks.md). Période du 9 novembre 2026 au 21 février 2027.
-- Marathon, 16 semaines : les séances sont actuellement intégrées dans [`../scripts/import_marathon_16w.py`](../scripts/import_marathon_16w.py). Les allures de ce script ont déjà été décalées de 30 secondes par kilomètre pour les comptes ciblés, elles ne constituent donc pas encore une source de référence neutre.
-- Autre plan Campus Coach : [`../scripts/import_campus_coach.py`](../scripts/import_campus_coach.py) importe un fichier `scratchpad/plan_marathon_8_nov_2026.md`, qui n'est pas présent dans le dépôt.
+## Placement dans le calendrier
 
-## Règles d'adaptation des allures
+La date de course est obligatoire. Le générateur place la dernière semaine du modèle autour de cette date, puis remonte semaine par semaine. Ainsi, la semaine finale du plan reste toujours la semaine de course, même si la date change.
 
-Les plans 10 km et semi fournis ont une plage EF de référence de 4:39 à 5:09 min/km en semaine 1, soit un milieu de plage à 4:54 min/km. L'EF utilisateur est elle aussi saisie comme une plage de 30 secondes par kilomètre. Le facteur d'adaptation utilise le milieu de la plage utilisateur :
+Mi Coach ne crée que les séances à faire à partir d'aujourd'hui. Les séances déjà passées ne sont pas recréées. En mode 4 séances, les séances 1 à 4 sont conservées. En mode 3 séances, la séance n° 3 est retirée chaque semaine, y compris la semaine de course.
+
+## Allures
+
+L'EF utilisateur est une plage obligatoire de 30 secondes par kilomètre. Le milieu de la plage sert à calculer le facteur d'adaptation :
 
 ```text
 allure_cible_utilisateur = allure_cible_source × (milieu_EF_utilisateur / milieu_EF_référence_du_plan)
 ```
 
-Toutes les allures sont traitées en secondes par kilomètre. Les valeurs calculées sont des valeurs initiales modifiables par l'utilisateur. Une valeur modifiée manuellement ne doit pas être écrasée silencieusement lors d'un nouveau calcul. Les allures de course sont spécifiques à l'objectif choisi.
+La borne opposée est complétée automatiquement dans l'interface : saisir la borne rapide ajoute 30 secondes à la borne lente, et saisir la borne lente retire 30 secondes à la borne rapide. Les valeurs restent modifiables dans les paramètres.
 
-Cette règle est une adaptation proportionnelle demandée par Valentin, pas une prédiction physiologique. Les durées des étapes chronométrées restent fixes ; leur distance estimée doit être recalculée. Pour une étape prescrite en distance, la distance reste fixe et sa durée estimée change. Les sprints indiqués « rapides » ou « aux sensations » restent sans allure cible.
+Les allures manuellement personnalisées sont appliquées aux nouvelles séances générées et ne sont pas écrasées par un recalcul automatique.
 
-## Fréquence des séances
-
-La version 4 séances conserve le programme source. La version 3 séances retire la séance n° 3 de chaque semaine, y compris la semaine de course. Si un texte saisi n'est pas numéroté, la troisième ligne est retirée lorsqu'il contient quatre séances.
+Les séances gardent leur progression de durée, de distance et de répétitions,
+mais l'allure d'un même type d'effort reste fixe dans un premier temps. Le
+profil affiche l'EF courante de l'athlète à l'instant T. Après une séance,
+« trop facile » accélère l'EF courante de 2 %, « trop dur » la ralentit de 2 %,
+et « parfait » ne change rien. La plage garde toujours exactement 30 secondes
+par kilomètre d'écart. Les allures automatiques sont recalculées depuis cette
+EF courante; une allure marquée comme personnalisée reste inchangée. L'effet
+est cumulatif sans plafond et ne modifie pas la source du plan. La progression
+de l'allure vient donc d'un feedback explicite de l'athlète, pas du simple
+passage des semaines.
 
 ## Limites connues
 
-Le document 10 km n'inclut pas le détail complet de toutes les séances hebdomadaires, il n'est donc pas encore un programme complet sélectionnable. Avant de calculer les allures marathon, il faut retrouver une allure EF de référence non modifiée, car au moins un import contient déjà un décalage de +30 s/km.
+Le document 10 km fourni détaille surtout les séances clés 2 et 4 et confirme que les séances 1 et 3 sont des EF jumelles sans préciser toutes leurs durées. Le générateur utilise donc une durée EF conservative et documentée pour ces deux séances, jusqu'à réception d'une version complète du plan.
+
+Le plan marathon historique contient des allures déjà ajustées pour sa source d'origine. Il est utilisable comme modèle calé sur la date de course, mais sa référence d'allure devra être révisée si une source marathon neutre est fournie.

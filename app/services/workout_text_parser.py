@@ -42,7 +42,7 @@ DURATION_RE = re.compile(
     re.IGNORECASE,
 )
 SESSION_RE = re.compile(
-    r"^(?:seance\s+(?P<session_number>\d+)\s*\((?P<session_day>[^)]+)\)|(?P<day>[a-z]+))\s*:\s*(?P<body>.+)$",
+    r"^(?:seance\s+(?P<session_number>\d+)(?:\s*\((?P<session_day>[^)]+)\))?|(?P<day>[a-z]+))\s*:\s*(?P<body>.+)$",
     re.IGNORECASE,
 )
 WEEK_RE = re.compile(r"^semaine\s+(\d+)\s*$", re.IGNORECASE)
@@ -129,12 +129,10 @@ def _zone(rest: str) -> tuple[Optional[str], str]:
             return key, label
     if re.search(r"\b(?:recup(?:eration)?|lent|lente|repos)\b", normalized):
         return "recovery", "Récupération"
-    if re.search(r"\b(?:echauffement|warm ?up)\b", normalized):
-        return "warmup", "Échauffement"
-    if re.search(r"\b(?:retour au calme|rc|cool ?down)\b", normalized):
-        return "cooldown", "Retour au calme"
+    if re.search(r"\b(?:echauffement|warm ?up|retour au calme|rc|cool ?down)\b", normalized):
+        return "ef", "EF"
     if re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations)\b", normalized):
-        return "fast_by_feel", "Rapide, aux sensations"
+        return "sprint", "Sprint"
     return None, ""
 
 
@@ -188,10 +186,8 @@ def _parse_one_step(
         step_type = "other"
     elif key == "recovery":
         step_type = "recovery"
-    elif key == "warmup":
-        step_type = "warmup"
-    elif key == "cooldown":
-        step_type = "cooldown"
+    elif key == "sprint":
+        step_type = "interval"
 
     target_type = "no_target"
     if key == "ef" and pace_fast is None:
@@ -286,9 +282,15 @@ def parse_workout_text(
                 f"Ligne {line_number} non reconnue : « {line} ». Utilise « Semaine 1 », puis « Lundi : 40 min EF »."
             )
         day_token = match.group("session_day") or match.group("day") or ""
-        weekday = DAY_INDEX.get(_norm(day_token))
-        if weekday is None:
-            raise WorkoutTextError(f"Ligne {line_number} : jour non reconnu (« {day_token} »).")
+        session_number = int(match.group("session_number")) if match.group("session_number") else None
+        if session_number is not None:
+            if not 1 <= session_number <= 6:
+                raise WorkoutTextError(f"Ligne {line_number} : le numéro de séance doit être entre 1 et 6.")
+            weekday = session_number - 1
+        else:
+            weekday = DAY_INDEX.get(_norm(day_token))
+            if weekday is None:
+                raise WorkoutTextError(f"Ligne {line_number} : jour non reconnu (« {day_token} »).")
         # The normalized line is used intentionally so parser behavior is accent-insensitive.
         body = match.group("body")
         steps = _parse_expression(body, pace_targets, ef_range)
@@ -305,7 +307,6 @@ def parse_workout_text(
             "Course",
         )
         source_order = len(workouts)
-        session_number = int(match.group("session_number")) if match.group("session_number") else None
         week_start = start_date + timedelta(days=(current_week - 1) * 7)
         workouts.append(
             ParsedWorkout(
@@ -327,9 +328,9 @@ def parse_workout_text(
         by_week.setdefault(workout.week_number, []).append(workout)
     omitted: list[ParsedWorkout] = []
     for week_number, week_workouts in by_week.items():
-        if len(week_workouts) > 4:
-            raise WorkoutTextError(f"La semaine {week_number} contient plus de 4 séances, ce qui n'est pas pris en charge.")
-        if sessions_per_week == 3:
+        if len(week_workouts) > 6:
+            raise WorkoutTextError(f"La semaine {week_number} contient plus de 6 séances. Les séances 5 et 6 sont possibles manuellement, au-delà il faut scinder la saisie.")
+        if sessions_per_week == 3 and len(week_workouts) <= 4:
             explicitly_numbered = all(workout.session_number is not None for workout in week_workouts)
             numbered_third = [workout for workout in week_workouts if workout.session_number == 3]
             if numbered_third:
