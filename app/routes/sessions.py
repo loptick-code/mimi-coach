@@ -601,30 +601,55 @@ async def admin_home(
         .order_by(Session.date)
     ).all()
 
-    # Regroupe par semaine ISO (Lun -> Dim)
+    session_meta = _session_display_meta(sessions_list)
+
+    # Regroupe par semaine du programme quand elle est connue. Les dates
+    # restent techniques, mais ne doivent pas faire passer la séance 1 d'une
+    # semaine avant les séances 2, 3 et 4 de la semaine précédente.
     weeks: list[dict] = []
-    seen_weeks: dict[date, dict] = {}
+    seen_weeks: dict[tuple[str, object], dict] = {}
     for s in sessions_list:
+        meta = session_meta[s.id]
+        plan_week = meta["plan_week"]
+        if plan_week is not None:
+            key = ("plan", plan_week)
+        else:
+            monday, _ = _week_bounds(s.date)
+            key = ("calendar", monday)
         monday, sunday = _week_bounds(s.date)
-        if monday not in seen_weeks:
+        if key not in seen_weeks:
             group = {
+                "plan_week": plan_week,
                 "monday": monday,
                 "sunday": sunday,
                 "sessions": [],
-                "is_current": monday <= today <= sunday,
-                "is_future": monday > today,
+                "is_current": False,
+                "is_future": True,
             }
-            seen_weeks[monday] = group
+            seen_weeks[key] = group
             weeks.append(group)
-        seen_weeks[monday]["sessions"].append(s)
+        group = seen_weeks[key]
+        group["sessions"].append(s)
+        group["monday"] = min(group["monday"], monday)
+        group["sunday"] = max(group["sunday"], sunday)
+        group["is_current"] = group["is_current"] or monday <= today <= sunday
+        group["is_future"] = group["is_future"] and s.date > today
+
+    for group in weeks:
+        group["sessions"].sort(
+            key=lambda session: (
+                session_meta[session.id]["session_number"] is None,
+                session_meta[session.id]["session_number"] or 99,
+                session.date,
+            )
+        )
+    weeks.sort(key=lambda group: (group["plan_week"] is None, group["plan_week"] or group["monday"]))
 
     # Calcule totaux par semaine
     for w in weeks:
         w["total_duration"] = sum((s.estimated_duration_min or 0) for s in w["sessions"])
         w["total_distance"] = sum((s.estimated_distance_km or 0) for s in w["sessions"])
         w["done_count"] = sum(1 for s in w["sessions"] if s.feedback is not None)
-
-    all_sessions = [s for week in weeks for s in week["sessions"]]
 
     return templates.TemplateResponse(
         request,
@@ -633,7 +658,7 @@ async def admin_home(
             "user": user,
             "athlete": athlete,
             "weeks": weeks,
-            "session_meta": _session_display_meta(all_sessions),
+            "session_meta": session_meta,
             "total_sessions": len(sessions_list),
         },
     )
