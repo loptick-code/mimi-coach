@@ -31,7 +31,8 @@ async def login_submit(
     password: str = Form(...),
     db: DBSession = Depends(get_session),
 ):
-    user = db.exec(select(User).where(User.email == email)).first()
+    normalized_email = email.strip().lower()
+    user = db.exec(select(User).where(User.email == normalized_email)).first()
     if user is None or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(
             request,

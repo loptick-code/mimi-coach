@@ -1,7 +1,7 @@
 """Modeles SQLModel.
 
 Modele simple inspire de Campus Coach :
-- User : coach (toi) + athlete (ta copine)
+- User : un compte distinct par personne, avec les mêmes droits
 - Session : une seance d'entrainement programmee a une date
 - Step : une etape d'une seance (echauffement, intervalle, recup, retour calme)
 - RepeatGroup : un groupe d'etapes a repeter N fois (ex : 10 x 1' seuil + 1' lent)
@@ -22,6 +22,8 @@ from sqlmodel import Field, Relationship, SQLModel
 
 
 class UserRole(str, Enum):
+    """Valeurs conservées pour compatibilité avec le schéma historique."""
+
     coach = "coach"
     athlete = "athlete"
 
@@ -73,6 +75,8 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     name: str
     password_hash: str
+    # Champ historique conservé pour compatibilité DB. Les accès sont basés
+    # sur la propriété des séances, pas sur ce rôle.
     role: UserRole = Field(default=UserRole.athlete)
 
     # Token SSO Garmin chiffre (Fernet) : dump JSON complet du client garminconnect
@@ -101,7 +105,7 @@ class Session(SQLModel, table=True):
     athlete_id: int = Field(foreign_key="user.id", index=True)
     date: _dt.date = Field(index=True)
     name: str  # ex: "Endurance Fondamentale", "Sortie Longue"
-    description: Optional[str] = None  # bloc de texte du coach
+    description: Optional[str] = None  # notes sur la séance
     difficulty: int = Field(default=1, ge=1, le=4)  # eclairs 1-4
 
     # Estimations cachees (calculees par workout_builder, persistees pour la liste)

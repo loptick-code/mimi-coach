@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from sqlmodel import Session as DBSession
 from sqlmodel import select
 
-from app.auth import current_user, require_coach, require_user
+from app.auth import current_user, require_user
 from app.db import get_session
 from app.models import (
     FEEDBACK_DELTA,
@@ -22,7 +22,6 @@ from app.models import (
     StepType,
     TargetType,
     User,
-    UserRole,
 )
 from app.services import garmin_client
 from app.services.workout_builder import (
@@ -42,22 +41,6 @@ def _week_bounds(reference: date) -> tuple[date, date]:
     return monday, sunday
 
 
-def _resolve_target_athlete(db: DBSession, viewer: User) -> User:
-    """Si le viewer est coach, on cible le premier athlete (par id). Sinon viewer.
-
-    L'order_by(User.id) garantit que le coach voit toujours le meme athlete
-    meme si plusieurs comptes test/dev coexistent.
-    """
-    if viewer.role == UserRole.athlete:
-        return viewer
-    athlete = db.exec(
-        select(User).where(User.role == UserRole.athlete).order_by(User.id)
-    ).first()
-    if athlete is None:
-        raise HTTPException(404, "Aucun athlete configure")
-    return athlete
-
-
 @router.get("/")
 async def home(
     request: Request,
@@ -74,7 +57,7 @@ async def home(
             pass
     monday, sunday = _week_bounds(today)
 
-    athlete = _resolve_target_athlete(db, user)
+    athlete = user
 
     sessions = db.exec(
         select(Session)
@@ -130,7 +113,7 @@ async def stats(
     return RedirectResponse(url="/", status_code=303)
     # Code original conserve ci-dessous, reactivable en supprimant le return ci-dessus.
     today = date.today()
-    athlete = _resolve_target_athlete(db, user)
+    athlete = user
 
     if period not in ("month", "year", "all"):
         period = "month"
@@ -261,8 +244,8 @@ async def session_detail(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     athlete = db.get(User, s.athlete_id)
 
@@ -303,8 +286,8 @@ async def submit_feedback(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     try:
         new_fb = SessionFeedback(feedback)
@@ -350,8 +333,8 @@ async def pick_garmin_page(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     athlete = db.get(User, s.athlete_id)
     if athlete is None or not athlete.garmin_token_encrypted:
@@ -405,8 +388,8 @@ async def pick_garmin_submit(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     if duration_sec <= 0 or distance_m <= 0:
         return RedirectResponse(
@@ -437,8 +420,8 @@ async def manual_actuals(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     if duration_min <= 0 or distance_km <= 0:
         return RedirectResponse(
@@ -468,8 +451,8 @@ async def unvalidate(
     s = db.get(Session, session_id)
     if s is None:
         raise HTTPException(404)
-    if user.role == UserRole.athlete and s.athlete_id != user.id:
-        raise HTTPException(403)
+    if s.athlete_id != user.id:
+        raise HTTPException(404)
 
     athlete = db.get(User, s.athlete_id)
     if s.feedback is not None and athlete is not None:
@@ -483,16 +466,16 @@ async def unvalidate(
     return RedirectResponse(url=f"/sessions/{session_id}", status_code=303)
 
 
-# --- Admin (coach uniquement) ---
+# --- Gestion du programme personnel ---
 
 
 @router.get("/admin")
 async def admin_home(
     request: Request,
-    user: User = Depends(require_coach),
+    user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
-    athlete = _resolve_target_athlete(db, user)
+    athlete = user
     today = date.today()
     sessions_list = db.exec(
         select(Session)
@@ -539,10 +522,10 @@ async def admin_home(
 @router.get("/admin/sessions/new")
 async def admin_new_session(
     request: Request,
-    user: User = Depends(require_coach),
+    user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
-    athlete = _resolve_target_athlete(db, user)
+    athlete = user
     return templates.TemplateResponse(
         request,
         "session_form.html",
@@ -559,11 +542,11 @@ async def admin_new_session(
 async def admin_edit_session(
     request: Request,
     session_id: int,
-    user: User = Depends(require_coach),
+    user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
     s = db.get(Session, session_id)
-    if s is None:
+    if s is None or s.athlete_id != user.id:
         raise HTTPException(404)
     athlete = db.get(User, s.athlete_id)
     return templates.TemplateResponse(
@@ -576,7 +559,7 @@ async def admin_edit_session(
 @router.post("/admin/sessions")
 async def admin_create_session(
     request: Request,
-    user: User = Depends(require_coach),
+    user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
     """Cree (ou met a jour si session_id present) une seance avec ses steps.
@@ -593,7 +576,7 @@ async def admin_create_session(
     """
     form = await request.form()
     raw_session_id = form.get("session_id")
-    athlete = _resolve_target_athlete(db, user)
+    athlete = user
 
     if raw_session_id:
         try:
@@ -601,7 +584,7 @@ async def admin_create_session(
         except (TypeError, ValueError):
             raise HTTPException(400, "ID de séance invalide")
         s = db.get(Session, session_id_int)
-        if s is None:
+        if s is None or s.athlete_id != user.id:
             raise HTTPException(404)
         # Supprimer les steps existants
         for old in list(s.steps):
@@ -723,11 +706,11 @@ async def admin_create_session(
 @router.post("/admin/sessions/{session_id}/delete")
 async def admin_delete_session(
     session_id: int,
-    user: User = Depends(require_coach),
+    user: User = Depends(require_user),
     db: DBSession = Depends(get_session),
 ):
     s = db.get(Session, session_id)
-    if s is None:
+    if s is None or s.athlete_id != user.id:
         raise HTTPException(404)
     db.delete(s)
     db.commit()

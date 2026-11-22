@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "_macros.html" import lyric_tag %}
 {% block title %}Stats — {{ period_label }}{% endblock %}
 
 {% block content %}
@@ -221,6 +220,5 @@
   </div>
   {% endif %}
 
-  {% if not is_athlete2(user) %}<div style="text-align: center; margin-top: 24px;">{{ lyric_tag() }}</div>{% endif %}
 </div>
 {% endblock %}
