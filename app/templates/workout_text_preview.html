@@ -9,7 +9,7 @@
 
   {% if error %}<div class="card card-pad" role="alert" style="margin-top:14px;border-color:#ef4444;color:#991b1b;">{{ error }}</div>{% endif %}
   {% if warnings %}<div class="card card-pad" style="margin-top:14px;border-color:#f59e0b;color:#92400e;"><strong>À vérifier</strong><ul style="margin:6px 0 0 18px;list-style:disc;">{% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}</ul></div>{% endif %}
-  {% if omitted_rows %}<div class="card card-pad" style="margin-top:14px;border-color:#f59e0b;color:#92400e;"><strong>Séances retirées en mode 3 sorties/semaine</strong><ul style="margin:6px 0 0 18px;list-style:disc;">{% for item in omitted_rows %}<li>Semaine {{ item.week_number }}, {{ item.weekday_label }} : {{ item.name }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if omitted_rows %}<div class="card card-pad" style="margin-top:14px;border-color:#f59e0b;color:#92400e;"><strong>Séances retirées en mode 3 sorties/semaine</strong><ul style="margin:6px 0 0 18px;list-style:disc;">{% for item in omitted_rows %}<li>Semaine {{ item.week_number }} · Séance {{ item.session_number or loop.index }} : {{ item.name }}</li>{% endfor %}</ul></div>{% endif %}
 
   <div class="flex flex-col" style="gap:10px;margin-top:14px;">
     {% for row in rows %}
@@ -23,22 +23,25 @@
   </div>
 
   <form method="post" action="/programme/texte/apercu" class="card card-pad flex flex-col" style="gap:8px;margin-top:14px;">
-    <label><span class="field-label">Lundi de départ</span><input type="date" name="start_date" value="{{ start_date }}" class="input" /></label>
+    <label><span class="field-label">Date technique de départ de la première semaine</span><input type="date" name="start_date" value="{{ start_date }}" class="input" /></label>
     <label><span class="field-label">Modifier le texte, puis recalculer l'aperçu</span><textarea name="program_text" rows="8" class="input" style="font-family:ui-monospace,monospace;font-size:12px;">{{ text }}</textarea></label>
     <button class="btn btn-ghost" type="submit">Recalculer l'aperçu</button>
   </form>
 
-  {% if can_confirm and not warnings %}
+  {% if can_confirm and existing_weeks %}
+  <form method="post" action="/programme/texte/confirmer" style="margin-top:12px;">
+    <textarea name="program_text" hidden>{{ text }}</textarea>
+    <input type="hidden" name="start_date" value="{{ start_date }}" />
+    <input type="hidden" name="overwrite_existing" value="1" />
+    <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Écraser les séances existantes et importer</button>
+  </form>
+  <a href="/programme/texte" class="btn btn-ghost btn-lg" style="width:100%;margin-top:8px;">Annuler, ne rien modifier</a>
+  <p style="font-size:12px;color:#92400e;margin-top:8px;">Seules les semaines signalées seront remplacées. Si tu annules, rien ne sera modifié.</p>
+  {% elif can_confirm %}
   <form method="post" action="/programme/texte/confirmer" style="margin-top:12px;">
     <textarea name="program_text" hidden>{{ text }}</textarea>
     <input type="hidden" name="start_date" value="{{ start_date }}" />
     <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Confirmer et ajouter {{ rows|length }} séance{{ 's' if rows|length != 1 else '' }}</button>
-  </form>
-  {% elif can_confirm %}
-  <p style="font-size:12px;color:var(--ink-muted);margin-top:12px;">Corrige les avertissements ou confirme seulement si tu acceptes cette organisation.</p>
-  <form method="post" action="/programme/texte/confirmer" style="margin-top:8px;">
-    <textarea name="program_text" hidden>{{ text }}</textarea><input type="hidden" name="start_date" value="{{ start_date }}" />
-    <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Confirmer malgré les avertissements</button>
   </form>
   {% endif %}
 </div></div>

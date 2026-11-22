@@ -94,9 +94,8 @@
           <div style="border-top: 1px solid var(--line);">
             {% for s in w.sessions %}
               <div class="flex items-center" style="gap: 12px; padding: 12px 14px; {% if not loop.last %}border-bottom: 1px solid var(--line);{% endif %}">
-                <div class="flex flex-col items-center justify-center flex-shrink-0" style="width: 32px;">
-                  <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: var(--ink-muted);">{{ s.date.strftime('%a') | upper }}</span>
-                  <span class="font-display" style="font-size: 18px; font-weight: 800; letter-spacing: -0.04em; line-height: 1;">{{ s.date.day }}</span>
+                <div class="flex flex-col items-center justify-center flex-shrink-0" style="width: 52px;">
+                  <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--ink-muted);">SÉANCE {{ loop.index }}</span>
                 </div>
                 {{ session_icon(s, size='sm') }}
                 <div class="flex-1 min-w-0">

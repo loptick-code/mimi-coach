@@ -138,7 +138,11 @@ def _step_from_segment(segment: str) -> Optional[PlanStep]:
     source_fast = min(paces) if paces else None
     source_slow = max(paces) if paces else None
     normalized = _norm(segment)
-    if key in {"ef", "tempo", "s60", "s30", "vma", "sweet_spot", "aerobic", "race_10k", "race_half", "race_marathon"}:
+    if re.search(r"\b(?:echauffement|warm ?up|retour au calme|cool ?down)\b", normalized):
+        key, step_type = "ef", "other"
+    elif re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations|effort libre)\b", normalized):
+        key, step_type = None, "interval"
+    elif key in {"ef", "tempo", "s60", "s30", "vma", "sweet_spot", "aerobic", "race_10k", "race_half", "race_marathon"}:
         step_type = "interval"
     elif re.search(r"\b(?:recup|lente?|repos)\b", normalized):
         key, step_type = None, "recovery"
@@ -157,7 +161,7 @@ def _step_from_segment(segment: str) -> Optional[PlanStep]:
         }.get(key, label)
     elif step_type == "recovery":
         label = "Récupération"
-    elif re.search(r"\b(?:rapide|sprint|sensations|lignes droites)\b", normalized):
+    elif re.search(r"\b(?:rapide|sprint|sensations|lignes droites|effort libre)\b", normalized):
         label = "Sprint"
     return PlanStep(
         label=label[:120],
@@ -348,11 +352,25 @@ def _load_marathon() -> PlanDefinition:
                 source_fast = round(1000 / high) if high else None
                 source_slow = round(1000 / low) if low else None
                 label = str(source.get("label") or "Course")
-                key = _target_key(label)
-                if key is None and label.lower() in {"lent", "recuperation", "récupération"}:
+                source_type = str(source.get("type", "interval")).split(".")[-1].lower()
+                normalized_label = _norm(label)
+                if source_type in {"warmup", "cooldown"} or re.search(
+                    r"\b(?:echauffement|warm ?up|retour au calme|cool ?down)\b", normalized_label
+                ):
+                    label = "EF"
+                    key = "ef"
+                    step_type = "other"
+                elif re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations|effort libre)\b", normalized_label):
+                    label = "Sprint"
+                    key = None
+                    step_type = "interval"
+                elif key := _target_key(label):
+                    step_type = source_type
+                elif normalized_label in {"lent", "recuperation", "récupération"} or source_type == "recovery":
+                    label = "Récupération"
                     step_type = "recovery"
                 else:
-                    step_type = str(source.get("type", "interval")).split(".")[-1].lower()
+                    step_type = source_type
                 converted.append(PlanStep(
                     label=label, duration_seconds=duration_seconds, distance_m=distance_m,
                     target_key=key, source_pace_fast=source_fast, source_pace_slow=source_slow,
@@ -365,6 +383,67 @@ def _load_marathon() -> PlanDefinition:
                 difficulty=int(item.get("difficulty") or 1), steps=converted,
             ))
     return PlanDefinition("marathon", "Marathon", 16, 379, 42_195, workouts=workouts)
+
+
+def _generic_preparation_workouts(week_number: int, phase_week: int) -> list[PlanWorkout]:
+    """Crée une semaine de base avant le cycle spécifique de l'objectif.
+
+    Cette phase provisoire reste volontairement générale : elle utilise l'EF,
+    quelques sprints aux sensations et une sortie longue progressive, sans
+    introduire d'allure marathon avant le début du plan source.
+    """
+    long_minutes = min(120, 60 + (phase_week - 1) * 5)
+    sprint_repetitions = min(10, 6 + (phase_week - 1) // 2)
+    sprint_block = PlanStep(
+        label="Sprint",
+        repeat_count=sprint_repetitions,
+        children=[
+            PlanStep(label="Sprint", duration_seconds=15, step_type="interval"),
+            PlanStep(label="Récupération", duration_seconds=45, step_type="recovery"),
+        ],
+    )
+    return [
+        PlanWorkout(
+            week_number=week_number,
+            session_number=1,
+            day_offset=DAY_BY_SESSION[1],
+            name="Endurance fondamentale",
+            description="Préparation générale : 45 min d'endurance fondamentale.",
+            difficulty=1,
+            steps=[PlanStep(label="EF", duration_seconds=45 * 60, target_key="ef", step_type="other")],
+        ),
+        PlanWorkout(
+            week_number=week_number,
+            session_number=2,
+            day_offset=DAY_BY_SESSION[2],
+            name="EF + sprints",
+            description=f"Préparation générale : 15 min EF, {sprint_repetitions} sprints de 15 s aux sensations avec 45 s de récupération, puis 10 min EF.",
+            difficulty=2,
+            steps=[
+                PlanStep(label="EF", duration_seconds=15 * 60, target_key="ef", step_type="other"),
+                sprint_block,
+                PlanStep(label="EF", duration_seconds=10 * 60, target_key="ef", step_type="other"),
+            ],
+        ),
+        PlanWorkout(
+            week_number=week_number,
+            session_number=3,
+            day_offset=DAY_BY_SESSION[3],
+            name="Endurance fondamentale",
+            description="Préparation générale : 45 min d'endurance fondamentale.",
+            difficulty=1,
+            steps=[PlanStep(label="EF", duration_seconds=45 * 60, target_key="ef", step_type="other")],
+        ),
+        PlanWorkout(
+            week_number=week_number,
+            session_number=4,
+            day_offset=DAY_BY_SESSION[4],
+            name="Sortie longue en EF",
+            description=f"Préparation générale : {long_minutes} min d'endurance fondamentale, sans allure spécifique.",
+            difficulty=2,
+            steps=[PlanStep(label="EF", duration_seconds=long_minutes * 60, target_key="ef", step_type="other")],
+        ),
+    ]
 
 
 _PLAN_CACHE: dict[str, PlanDefinition] = {}
@@ -416,15 +495,47 @@ def generate_schedule(
     final_monday = race_date - timedelta(days=plan.race_day_offset)
     first_monday = final_monday - timedelta(weeks=plan.weeks - 1)
     earliest = today or date.today()
+    current_monday = earliest - timedelta(days=earliest.weekday())
+    preparation_weeks = (
+        max(0, (first_monday - current_monday).days // 7)
+    )
     scheduled: list[ScheduledWorkout] = []
+
+    for phase_week in range(1, preparation_weeks + 1):
+        overall_week = phase_week
+        for workout in _generic_preparation_workouts(overall_week, phase_week):
+            if sessions_per_week == 3 and workout.session_number == 3:
+                continue
+            workout_date = current_monday + timedelta(
+                weeks=phase_week - 1,
+                days=workout.day_offset,
+            )
+            if workout_date < earliest:
+                continue
+            scheduled.append(ScheduledWorkout(
+                plan_key=goal,
+                plan_week=overall_week,
+                session_number=workout.session_number,
+                date=workout_date,
+                name=workout.name,
+                description=workout.description,
+                difficulty=workout.difficulty,
+                steps=[_scale_step(step, factor, ef_fast_seconds, ef_slow_seconds) for step in workout.steps],
+            ))
+
     for workout in plan.workouts:
         if sessions_per_week == 3 and workout.session_number == 3:
             continue
-        workout_date = first_monday + timedelta(weeks=workout.week_number - 1, days=workout.day_offset)
+        workout_date = first_monday + timedelta(
+            weeks=workout.week_number - 1,
+            days=workout.day_offset,
+        )
         if workout_date < earliest or workout_date > race_date:
             continue
         scheduled.append(ScheduledWorkout(
-            plan_key=goal, plan_week=workout.week_number, session_number=workout.session_number,
+            plan_key=goal,
+            plan_week=preparation_weeks + workout.week_number,
+            session_number=workout.session_number,
             date=workout_date, name=workout.name, description=workout.description,
             difficulty=workout.difficulty,
             steps=[_scale_step(step, factor, ef_fast_seconds, ef_slow_seconds) for step in workout.steps],

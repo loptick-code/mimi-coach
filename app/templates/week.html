@@ -4,7 +4,6 @@
 
 {% block content %}
 {% set _months_fr = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'] %}
-{% set _days_fr = {0: 'LUN', 1: 'MAR', 2: 'MER', 3: 'JEU', 4: 'VEN', 5: 'SAM', 6: 'DIM'} %}
 
 {% macro fmt_duration(mins) %}
   {%- if mins is none -%}0 min
@@ -97,19 +96,6 @@
          class="flex items-center group"
          style="background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 14px; gap: 14px; transition: border-color 120ms; text-decoration: none; color: inherit;"
          onmouseover="this.style.borderColor='var(--ink)';" onmouseout="this.style.borderColor='var(--line)';">
-
-        <!-- Day badge a gauche : noir si done, gris sinon -->
-        <div class="flex-shrink-0 text-center"
-             style="width: 54px; padding: 8px 4px; border-radius: 12px;
-                    background: {% if s.feedback %}var(--ink){% else %}rgba(14,14,14,0.04){% endif %};
-                    color: {% if s.feedback %}var(--cream){% else %}var(--ink){% endif %};">
-          <div style="font-size: 9px; font-weight: 700; letter-spacing: 0.12em; opacity: 0.7;">
-            {{ _days_fr[s.date.weekday()] }}
-          </div>
-          <div class="font-display" style="font-size: 22px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-top: 2px;">
-            {{ s.date.day }}
-          </div>
-        </div>
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center" style="gap: 6px; margin-bottom: 4px; flex-wrap: wrap;">

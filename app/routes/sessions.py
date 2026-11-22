@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -34,6 +36,20 @@ from app.services.training_paces import calculate_pace_targets, scale_ef_range
 from app.templates import templates
 
 router = APIRouter()
+
+
+def _normalize_manual_step(raw_type: object, raw_label: object) -> tuple[StepType, str | None]:
+    """Conserve les mêmes conventions que les plans et l'import texte."""
+    step_type = _safe_enum(StepType, raw_type, StepType.interval)
+    label = str(raw_label or "").strip()[:50] or None
+    normalized = unicodedata.normalize("NFKD", label or "").encode("ascii", "ignore").decode("ascii").lower()
+    if step_type in (StepType.warmup, StepType.cooldown) or re.search(
+        r"\b(?:echauffement|warm ?up|retour au calme|cool ?down)\b", normalized
+    ):
+        return StepType.other, "EF"
+    if re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations|effort libre)\b", normalized):
+        return StepType.interval, "Sprint"
+    return step_type, label
 
 
 def _update_current_profile_from_feedback(
@@ -670,12 +686,13 @@ async def admin_create_session(
 
     for idx, raw in enumerate(steps_raw):
         kind = raw.get("kind") or "step"
+        step_type, label = _normalize_manual_step(raw.get("type"), raw.get("label"))
         step = Step(
             session_id=s.id,
             order=idx + 1,
             kind=kind,
-            label=(raw.get("label") or "").strip()[:50] or None,
-            type=_safe_enum(StepType, raw.get("type"), StepType.interval),
+            label=label,
+            type=step_type,
         )
 
         if kind == "repeat":

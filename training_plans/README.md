@@ -12,6 +12,8 @@ La date de course est obligatoire. Le générateur place la dernière semaine du
 
 Mi Coach ne crée que les séances à faire à partir d'aujourd'hui. Les séances déjà passées ne sont pas recréées. En mode 4 séances, les séances 1 à 4 sont conservées. En mode 3 séances, la séance n° 3 est retirée chaque semaine, y compris la semaine de course.
 
+Si la date de course est plus éloignée que la durée du plan source, Mi Coach ajoute provisoirement des semaines de préparation générale avant le plan spécifique, quel que soit l'objectif. Ces semaines utilisent l'EF, des sprints courts aux sensations et une sortie longue progressive, sans allure spécifique de la course. Elles seront remplacées plus tard par une bibliothèque de semaines génériques plus riche.
+
 ## Allures
 
 L'EF utilisateur est une plage obligatoire de 30 secondes par kilomètre. Le milieu de la plage sert à calculer le facteur d'adaptation :

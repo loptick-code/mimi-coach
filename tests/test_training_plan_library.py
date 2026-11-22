@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date
+from datetime import date, timedelta
 
 from app.services.training_plan_library import generate_schedule, get_plan
 
@@ -15,9 +15,20 @@ class TrainingPlanLibraryTests(unittest.TestCase):
         race_date = date(2027, 3, 14)  # dimanche
         _, schedule = generate_schedule("10k", race_date, 300, 330, 4, today=date(2026, 11, 22))
         self.assertEqual(schedule[-1].date, race_date)
-        self.assertEqual(schedule[-1].plan_week, 13)
+        self.assertGreater(schedule[-1].plan_week, 13)
         self.assertEqual(schedule[-1].session_number, 4)
-        self.assertEqual(schedule[0].date.weekday(), 0)
+        source_start = race_date - timedelta(days=6) - timedelta(weeks=12)
+        source_first = next(item for item in schedule if item.date == source_start and item.session_number == 1)
+        self.assertEqual(source_first.date.weekday(), 0)
+
+    def test_long_lead_time_adds_general_preparation_before_source_plan(self):
+        race_date = date(2027, 3, 14)
+        _, schedule = generate_schedule("10k", race_date, 300, 330, 4, today=date(2026, 11, 22))
+        source_start = race_date - timedelta(days=6) - timedelta(weeks=12)
+        source_first = next(item for item in schedule if item.date == source_start and item.session_number == 1)
+        self.assertEqual(source_first.plan_week, 5)
+        self.assertTrue(any(item.plan_week == 1 for item in schedule))
+        self.assertTrue(any("Préparation générale" in item.description for item in schedule))
 
     def test_three_sessions_remove_session_three_every_week(self):
         race_date = date(2027, 3, 14)
@@ -31,7 +42,7 @@ class TrainingPlanLibraryTests(unittest.TestCase):
         easy = next(item for item in plan.workouts if item.week_number == 1 and item.session_number == 1)
         self.assertEqual(easy.steps[0].target_key, "ef")
         _, schedule = generate_schedule("10k", date(2027, 3, 14), 300, 330, 4, today=date(2026, 11, 22))
-        first_easy = next(item for item in schedule if item.plan_week == 1 and item.session_number == 1)
+        first_easy = next(item for item in schedule if item.session_number == 1)
         self.assertEqual(first_easy.steps[0].source_pace_fast, 300)
         self.assertEqual(first_easy.steps[0].source_pace_slow, 330)
 

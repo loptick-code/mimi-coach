@@ -235,7 +235,7 @@ def _generate_plan(db: DBSession, user: User, profile: TrainingProfile) -> Train
         session = Session(
             athlete_id=user.id,
             date=planned.date,
-            name=f"S{planned.plan_week} · {planned.name}"[:100],
+            name=f"Semaine {planned.plan_week} · Séance {planned.session_number} · {planned.name}"[:100],
             description=f"Plan {GOAL_LABELS[profile.goal]}, semaine {planned.plan_week}. {planned.description}"[:2000],
             difficulty=max(1, min(4, planned.difficulty)),
         )
@@ -374,6 +374,29 @@ def _get_pace_data(profile: TrainingProfile) -> tuple[dict[str, int], tuple[int,
     return targets, ef_range
 
 
+def _existing_sessions_by_import_week(
+    db: DBSession,
+    user: User,
+    start_date: date,
+    week_numbers: set[int],
+) -> dict[int, list[Session]]:
+    """Retourne les séances déjà présentes dans les semaines importées."""
+    existing: dict[int, list[Session]] = {}
+    for week_number in sorted(week_numbers):
+        week_start = start_date + timedelta(weeks=week_number - 1)
+        week_end = week_start + timedelta(days=6)
+        sessions = db.exec(
+            select(Session)
+            .where(Session.athlete_id == user.id)
+            .where(Session.date >= week_start)
+            .where(Session.date <= week_end)
+            .order_by(Session.date)
+        ).all()
+        if sessions:
+            existing[week_number] = sessions
+    return existing
+
+
 def _text_preview_context(
     request: Request,
     user: User,
@@ -411,12 +434,24 @@ def _text_preview_context(
     dates = [workout.date for workout in result.workouts]
     if len(set(dates)) != len(dates):
         error = error or "Plusieurs séances sont prévues le même jour. Modifie le texte avant de confirmer."
-    if db is not None and dates:
-        collisions = db.exec(
-            select(Session).where(Session.athlete_id == user.id).where(Session.date.in_(dates))
-        ).all()
-        if collisions:
-            error = error or "Une ou plusieurs dates ont déjà une séance. Modifie la date de début ou supprime les doublons avant de confirmer."
+    existing_weeks = (
+        _existing_sessions_by_import_week(
+            db,
+            user,
+            start_date,
+            {workout.week_number for workout in result.workouts},
+        )
+        if db is not None and result.workouts
+        else {}
+    )
+    if existing_weeks:
+        week_labels = ", ".join(str(week) for week in sorted(existing_weeks))
+        existing_count = sum(len(sessions) for sessions in existing_weeks.values())
+        warnings.append(
+            f"Des séances existent déjà dans la ou les semaines {week_labels} "
+            f"({existing_count} séance{'s' if existing_count != 1 else ''}). "
+            "Si tu confirmes l'écrasement, toutes les séances de ces semaines seront remplacées."
+        )
     if len(set(dates)) != len(dates):
         warnings.append("Plusieurs séances sont prévues le même jour.")
 
@@ -443,11 +478,10 @@ def _text_preview_context(
             "name": workout.name,
             "steps": steps,
             "week_number": workout.week_number,
-            "weekday_label": workout.weekday_label,
             "session_number": workout.session_number,
         })
     omitted_rows = [
-        {"week_number": workout.week_number, "weekday_label": workout.weekday_label, "name": workout.name, "session_number": workout.session_number}
+        {"week_number": workout.week_number, "name": workout.name, "session_number": workout.session_number}
         for workout in result.omitted_workouts
     ]
     return templates.TemplateResponse(
@@ -462,6 +496,7 @@ def _text_preview_context(
             "warnings": list(dict.fromkeys(warnings)),
             "error": error,
             "can_confirm": error is None,
+            "existing_weeks": sorted(existing_weeks),
             "profile": _profile_context(profile),
             "race_date": profile.race_date,
         },
@@ -585,21 +620,36 @@ async def confirm_workout_text(
             error="Plusieurs séances sont prévues le même jour. Modifie le texte avant de confirmer.",
             db=db,
         )
-    collisions = db.exec(
-        select(Session).where(Session.athlete_id == user.id).where(Session.date.in_(dates))
-    ).all() if dates else []
-    if collisions:
+    existing_weeks = _existing_sessions_by_import_week(
+        db,
+        user,
+        start_date,
+        {workout.week_number for workout in parsed.workouts},
+    ) if dates else {}
+    overwrite_existing = str(form.get("overwrite_existing") or "").lower() in ("1", "true", "on", "yes")
+    if existing_weeks and not overwrite_existing:
+        week_labels = ", ".join(str(week) for week in sorted(existing_weeks))
         return _text_preview_context(
             request, user, profile, text, start_date,
-            error="Une ou plusieurs dates ont déjà une séance. Modifie la date de début ou supprime les doublons avant de confirmer.",
+            error=(
+                f"Des séances existent déjà dans la ou les semaines {week_labels}. "
+                "Coche l'écrasement si tu veux remplacer ces semaines, ou modifie la date de départ."
+            ),
             db=db,
         )
 
+    if existing_weeks:
+        for sessions in existing_weeks.values():
+            for existing in sessions:
+                db.delete(existing)
+        db.flush()
+
     for workout in parsed.workouts:
+        session_number = workout.session_number or workout.weekday + 1
         session = Session(
             athlete_id=user.id,
             date=workout.date,
-            name=workout.name[:100],
+            name=f"Semaine {workout.week_number} · Séance {session_number} · {workout.name}"[:100],
             description=f"Créée depuis un programme texte, semaine {workout.week_number}.",
             difficulty=2,
         )
