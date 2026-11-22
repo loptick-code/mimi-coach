@@ -19,7 +19,17 @@
 {# === Vignette de seance (initiales colorees selon type) === #}
 {% macro session_icon(session, size='md') %}
   {% set name = (session.name or '') | lower %}
-  {% if 'sortie longue' in name %}
+  {% set race = namespace(value=('course' in name or 'compet' in name or 'marathon' in name or 'semi-marathon' in name or '10 km' in name)) %}
+  {% set has_interval = namespace(value=false) %}
+  {% for step in session.steps or [] %}
+    {% set step_name = (step.label or '') | lower %}
+    {% if 'course' in step_name or 'compet' in step_name or 'marathon' in step_name %}{% set race.value = true %}{% endif %}
+    {% if step.type.value == 'interval' %}{% set has_interval.value = true %}{% endif %}
+  {% endfor %}
+  {% set looks_long = (session.estimated_duration_min or 0) >= 90 or (session.estimated_distance_km or 0) >= 15 %}
+  {% if race.value %}
+    {% set bg = '#FF6B6B' %}{% set initials = 'C' %}
+  {% elif 'sortie longue' in name or looks_long %}
     {% set bg = 'var(--zone-recovery)' %}{% set initials = 'SL' %}
   {% elif 'seuil' in name %}
     {% set bg = 'var(--zone-interval)' %}{% set initials = 'S' %}
@@ -31,8 +41,8 @@
     {% set bg = '#FF8C42' %}{% set initials = 'T' %}
   {% elif 'fraction' in name or 'vma' in name %}
     {% set bg = 'var(--zone-interval)' %}{% set initials = 'I' %}
-  {% elif 'course' in name or 'compet' in name %}
-    {% set bg = '#FF6B6B' %}{% set initials = 'C' %}
+  {% elif has_interval.value %}
+    {% set bg = 'var(--zone-interval)' %}{% set initials = 'I' %}
   {% elif 'récup' in name or 'recup' in name %}
     {% set bg = 'var(--zone-cooldown)' %}{% set initials = 'R' %}
   {% else %}

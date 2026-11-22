@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline_dark %}
-{% block title %}{{ session.name }}{% endblock %}
+{% block title %}{{ session_meta.title }}{% endblock %}
 
 {% macro render_step(s, adj_pct=0) %}
   {% set _adj = adj_pct or 0 %}
@@ -59,12 +59,20 @@
 
   <div class="flex items-center" style="gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
     {% set _name = (session.name or '') | lower %}
+    {% set _flags = namespace(race=('course' in _name or 'compet' in _name or 'marathon' in _name or 'semi-marathon' in _name or '10 km' in _name), interval=false) %}
+    {% for step in session.steps or [] %}
+      {% set _step_name = (step.label or '') | lower %}
+      {% if 'course' in _step_name or 'marathon' in _step_name %}{% set _flags.race = true %}{% endif %}
+      {% if step.type.value == 'interval' %}{% set _flags.interval = true %}{% endif %}
+    {% endfor %}
     {% set _type = 'EF' %}
-    {% if 'sortie longue' in _name %}{% set _type = 'SL' %}
+    {% if _flags.race %}{% set _type = 'Course' %}
+    {% elif 'sortie longue' in _name or (session.estimated_duration_min or 0) >= 90 or (session.estimated_distance_km or 0) >= 15 %}{% set _type = 'SL' %}
     {% elif 'seuil' in _name %}{% set _type = 'Seuil' %}
     {% elif 'tempo' in _name %}{% set _type = 'Tempo' %}
     {% elif 'vma' in _name or 'fraction' in _name %}{% set _type = 'VMA' %}
     {% elif 'force' in _name %}{% set _type = 'Force' %}
+    {% elif _flags.interval %}{% set _type = 'Fractionné' %}
     {% endif %}
     <span class="pill pill-accent">{{ _type }}</span>
     <span style="font-size: 11px; color: rgba(245,241,234,0.6); font-weight: 600;">{{ session.date.strftime("%d/%m/%Y") }}</span>
@@ -76,7 +84,8 @@
     {% endif %}
   </div>
 
-  <h1 class="display-xxl" style="font-size: clamp(38px, 8vw, 54px); line-height: 0.9;">{{ session.name }}</h1>
+  <div class="micro-label" style="color: rgba(245,241,234,0.6); margin-bottom: 8px;">{{ session_meta.label }}</div>
+  <h1 class="display-xxl" style="font-size: clamp(38px, 8vw, 54px); line-height: 0.9;">{{ session_meta.title }}</h1>
 
   <!-- Stats hero -->
   <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 22px;">

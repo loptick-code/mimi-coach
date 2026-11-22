@@ -79,7 +79,7 @@ _DURATION_RE = re.compile(
 )
 _PACE_RE = re.compile(r"(?<!\d)(\d{1,2}:\d{2})\s*(?:/\s*km)?", re.IGNORECASE)
 _REPEAT_RE = re.compile(r"(?P<count>\d{1,2})\s*[x×]\s*\((?P<body>[^()]*)\)", re.IGNORECASE)
-_BULLET_RE = re.compile(r"^-\s*\*\*Séance\s+(?P<number>[1-4])[^:]*:\*\*\s*(?P<body>.+)$", re.IGNORECASE)
+_BULLET_RE = re.compile(r"^-\s*\*\*Séance\s+(?P<number>[1-4])(?P<heading>[^*]*)\*\*(?P<body>.*)$", re.IGNORECASE)
 _WEEK_RE = re.compile(r"^#{2,3}\s*Semaine\s+(?P<number>\d+)", re.IGNORECASE)
 
 
@@ -253,8 +253,9 @@ def _source_bullets(path: Path) -> dict[int, dict[int, tuple[str, str]]]:
         bullet = _BULLET_RE.match(line)
         if bullet and current_week is not None:
             number = int(bullet.group("number"))
-            body = bullet.group("body").strip()
-            title = f"Séance {number}"
+            heading = bullet.group("heading").strip(" ,:")
+            body = bullet.group("body").strip(" ,:")
+            title = heading or f"Séance {number}"
             weeks[current_week][number] = (title, _body_after_summary(body))
     return weeks
 
@@ -283,17 +284,42 @@ def _easy_workout(week: int, number: int, minutes: int, name: str = "Endurance f
 
 def _source_workout(week: int, number: int, title: str, body: str, race_distance_m: float) -> PlanWorkout:
     body = re.split(r"\.\s*(?:Total|Bloc actif|Bloc facultatif|Difficulté|Difficulte)\b", body, maxsplit=1, flags=re.IGNORECASE)[0]
+    race_text = _norm(f"{title} {body}")
+    is_race = number == 4 and re.search(
+        r"\b(?:course|competition|10\s*km|semi[- ]marathon|marathon)\b", race_text
+    )
     steps = _parse_sequence(body)
     if not steps:
         # Le plan reste disponible même si une formulation source est narrative.
         total = _DURATION_RE.search(body)
         duration = _duration(total)[1] if total else None
         steps = [PlanStep(label=title, duration_seconds=duration, step_type="other")]
-    if number == 4 and week in {13, 15, 16} and re.search(r"course|compétition|10\s*km|semi|marathon", _norm(body)):
+    if is_race:
+        race_label = _race_label(race_distance_m)
+        title = race_label
         steps = [PlanStep(label="Course", distance_m=race_distance_m, target_key=None, step_type="other")]
     return PlanWorkout(
         week_number=week, session_number=number, day_offset=DAY_BY_SESSION[number],
         name=title, description=body[:1000], difficulty=3, steps=steps,
+    )
+
+
+def _race_label(distance_m: float) -> str:
+    if distance_m >= 40_000:
+        return "Marathon"
+    if distance_m >= 20_000:
+        return "Course semi-marathon"
+    return "Course 10 km"
+
+
+def _is_race_workout(workout: PlanWorkout, race_distance_m: float) -> bool:
+    text = _norm(f"{workout.name} {workout.description}")
+    if re.search(r"\b(?:course|competition|marathon|semi[- ]marathon|10\s*km)\b", text):
+        return True
+    return any(
+        step.distance_m is not None and abs(step.distance_m - race_distance_m) < 1
+        and (step.label or "").lower() in {"course", "marathon"}
+        for step in workout.steps
     )
 
 
@@ -309,6 +335,7 @@ def _load_semi() -> PlanDefinition:
             title, body = bullets.get(week, {}).get(number, (f"Séance {number}", "45 min EF"))
             workouts.append(_source_workout(week, number, title, body, 21_100))
         workouts.append(_easy_workout(week, 3, easy[3]))
+    workouts.sort(key=lambda item: (item.week_number, item.session_number))
     return PlanDefinition("half", "Semi-marathon", 15, 294, 21_100, workouts=workouts)
 
 
@@ -328,6 +355,7 @@ def _load_10k() -> PlanDefinition:
             title, body = bullets.get(week, {}).get(number, (f"Séance {number}", f"{minutes} min EF"))
             workouts.append(_source_workout(week, number, title, body, 10_000))
         workouts.append(_easy_workout(week, 3, minutes))
+    workouts.sort(key=lambda item: (item.week_number, item.session_number))
     return PlanDefinition("10k", "10 km", 13, 294, 10_000, workouts=workouts)
 
 
@@ -382,6 +410,7 @@ def _load_marathon() -> PlanDefinition:
                 description=str(item.get("description") or ""),
                 difficulty=int(item.get("difficulty") or 1), steps=converted,
             ))
+    workouts.sort(key=lambda item: (item.week_number, item.session_number))
     return PlanDefinition("marathon", "Marathon", 16, 379, 42_195, workouts=workouts)
 
 
@@ -539,6 +568,25 @@ def generate_schedule(
             date=workout_date, name=workout.name, description=workout.description,
             difficulty=workout.difficulty,
             steps=[_scale_step(step, factor, ef_fast_seconds, ef_slow_seconds) for step in workout.steps],
+        ))
+
+    final_source_workout = next(
+        (
+            workout for workout in plan.workouts
+            if workout.week_number == plan.weeks and workout.session_number == 4
+        ),
+        None,
+    )
+    if final_source_workout is None or not _is_race_workout(final_source_workout, plan.race_distance_m):
+        scheduled.append(ScheduledWorkout(
+            plan_key=goal,
+            plan_week=preparation_weeks + plan.weeks,
+            session_number=5,
+            date=race_date,
+            name=_race_label(plan.race_distance_m),
+            description=f"Jour J ! {_race_label(plan.race_distance_m)}.",
+            difficulty=5,
+            steps=[PlanStep(label="Course", distance_m=plan.race_distance_m, step_type="other")],
         ))
     scheduled.sort(key=lambda item: (item.date, item.session_number))
     return plan, scheduled

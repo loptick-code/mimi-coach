@@ -93,18 +93,19 @@
 
           <div style="border-top: 1px solid var(--line);">
             {% for s in w.sessions %}
+              {% set meta = session_meta[s.id] %}
               <div class="flex items-center" style="gap: 12px; padding: 12px 14px; {% if not loop.last %}border-bottom: 1px solid var(--line);{% endif %}">
                 <div class="flex flex-col items-center justify-center flex-shrink-0" style="width: 52px;">
-                  <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--ink-muted);">SÉANCE {{ loop.index }}</span>
+                  <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--ink-muted);">{% if meta.is_race %}COURSE{% else %}SÉANCE {{ meta.session_number or '?' }}{% endif %}</span>
                 </div>
                 {{ session_icon(s, size='sm') }}
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center" style="gap: 6px; margin-bottom: 2px; flex-wrap: wrap;">
-                    <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);">Séance {{ loop.index }}/{{ w.sessions|length }}</span>
+                    <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);">{{ meta.label }}</span>
                     {% if s.feedback %}{{ feedback_pill(s.feedback, with_label=False) }}{% endif %}
                     {% if s.last_push_error %}<span class="pill pill-danger">erreur</span>{% endif %}
                   </div>
-                  <div class="font-display" style="font-weight: 700; font-size: 14px; letter-spacing: -0.02em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ s.name }}</div>
+                  <div class="font-display" style="font-weight: 700; font-size: 14px; letter-spacing: -0.02em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ meta.title }}</div>
                   <div class="flex items-center" style="gap: 6px; font-size: 11px; color: var(--ink-muted); margin-top: 2px;">
                     <span>{{ s.estimated_duration_min or 0 }} min</span>
                     <span>·</span>
