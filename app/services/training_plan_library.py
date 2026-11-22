@@ -385,6 +385,67 @@ def _load_marathon() -> PlanDefinition:
     return PlanDefinition("marathon", "Marathon", 16, 379, 42_195, workouts=workouts)
 
 
+def _generic_marathon_preparation(week_number: int, phase_week: int) -> list[PlanWorkout]:
+    """Crée une semaine de base avant le cycle marathon spécifique.
+
+    Cette phase provisoire reste volontairement générale : elle utilise l'EF,
+    quelques sprints aux sensations et une sortie longue progressive, sans
+    introduire d'allure marathon avant le début du plan source.
+    """
+    long_minutes = min(120, 60 + (phase_week - 1) * 5)
+    sprint_repetitions = min(10, 6 + (phase_week - 1) // 2)
+    sprint_block = PlanStep(
+        label="Sprint",
+        repeat_count=sprint_repetitions,
+        children=[
+            PlanStep(label="Sprint", duration_seconds=15, step_type="interval"),
+            PlanStep(label="Récupération", duration_seconds=45, step_type="recovery"),
+        ],
+    )
+    return [
+        PlanWorkout(
+            week_number=week_number,
+            session_number=1,
+            day_offset=DAY_BY_SESSION[1],
+            name="Endurance fondamentale",
+            description="Préparation générale : 45 min d'endurance fondamentale.",
+            difficulty=1,
+            steps=[PlanStep(label="EF", duration_seconds=45 * 60, target_key="ef", step_type="other")],
+        ),
+        PlanWorkout(
+            week_number=week_number,
+            session_number=2,
+            day_offset=DAY_BY_SESSION[2],
+            name="EF + sprints",
+            description=f"Préparation générale : 15 min EF, {sprint_repetitions} sprints de 15 s aux sensations avec 45 s de récupération, puis 10 min EF.",
+            difficulty=2,
+            steps=[
+                PlanStep(label="EF", duration_seconds=15 * 60, target_key="ef", step_type="other"),
+                sprint_block,
+                PlanStep(label="EF", duration_seconds=10 * 60, target_key="ef", step_type="other"),
+            ],
+        ),
+        PlanWorkout(
+            week_number=week_number,
+            session_number=3,
+            day_offset=DAY_BY_SESSION[3],
+            name="Endurance fondamentale",
+            description="Préparation générale : 45 min d'endurance fondamentale.",
+            difficulty=1,
+            steps=[PlanStep(label="EF", duration_seconds=45 * 60, target_key="ef", step_type="other")],
+        ),
+        PlanWorkout(
+            week_number=week_number,
+            session_number=4,
+            day_offset=DAY_BY_SESSION[4],
+            name="Sortie longue en EF",
+            description=f"Préparation générale : {long_minutes} min d'endurance fondamentale, sans allure spécifique.",
+            difficulty=2,
+            steps=[PlanStep(label="EF", duration_seconds=long_minutes * 60, target_key="ef", step_type="other")],
+        ),
+    ]
+
+
 _PLAN_CACHE: dict[str, PlanDefinition] = {}
 
 
@@ -434,15 +495,49 @@ def generate_schedule(
     final_monday = race_date - timedelta(days=plan.race_day_offset)
     first_monday = final_monday - timedelta(weeks=plan.weeks - 1)
     earliest = today or date.today()
+    current_monday = earliest - timedelta(days=earliest.weekday())
+    preparation_weeks = (
+        max(0, (first_monday - current_monday).days // 7)
+        if goal == "marathon"
+        else 0
+    )
     scheduled: list[ScheduledWorkout] = []
+
+    for phase_week in range(1, preparation_weeks + 1):
+        overall_week = phase_week
+        for workout in _generic_marathon_preparation(overall_week, phase_week):
+            if sessions_per_week == 3 and workout.session_number == 3:
+                continue
+            workout_date = current_monday + timedelta(
+                weeks=phase_week - 1,
+                days=workout.day_offset,
+            )
+            if workout_date < earliest:
+                continue
+            scheduled.append(ScheduledWorkout(
+                plan_key=goal,
+                plan_week=overall_week,
+                session_number=workout.session_number,
+                date=workout_date,
+                name=workout.name,
+                description=workout.description,
+                difficulty=workout.difficulty,
+                steps=[_scale_step(step, factor, ef_fast_seconds, ef_slow_seconds) for step in workout.steps],
+            ))
+
     for workout in plan.workouts:
         if sessions_per_week == 3 and workout.session_number == 3:
             continue
-        workout_date = first_monday + timedelta(weeks=workout.week_number - 1, days=workout.day_offset)
+        workout_date = first_monday + timedelta(
+            weeks=workout.week_number - 1,
+            days=workout.day_offset,
+        )
         if workout_date < earliest or workout_date > race_date:
             continue
         scheduled.append(ScheduledWorkout(
-            plan_key=goal, plan_week=workout.week_number, session_number=workout.session_number,
+            plan_key=goal,
+            plan_week=preparation_weeks + workout.week_number,
+            session_number=workout.session_number,
             date=workout_date, name=workout.name, description=workout.description,
             difficulty=workout.difficulty,
             steps=[_scale_step(step, factor, ef_fast_seconds, ef_slow_seconds) for step in workout.steps],
