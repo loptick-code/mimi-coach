@@ -67,7 +67,7 @@
     {% elif 'force' in _name %}{% set _type = 'Force' %}
     {% endif %}
     <span class="pill pill-accent">{{ _type }}</span>
-    <span style="font-size: 11px; color: rgba(245,241,234,0.6); font-weight: 600;">{{ session.date.strftime("%A %d %B %Y") }}</span>
+    <span style="font-size: 11px; color: rgba(245,241,234,0.6); font-weight: 600;">{{ session.date.strftime("%d/%m/%Y") }}</span>
     {% if session.feedback %}
       <span class="pill pill-green">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>

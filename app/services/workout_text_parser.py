@@ -279,7 +279,7 @@ def parse_workout_text(
         match = SESSION_RE.fullmatch(normalized)
         if not match:
             raise WorkoutTextError(
-                f"Ligne {line_number} non reconnue : « {line} ». Utilise « Semaine 1 », puis « Lundi : 40 min EF »."
+                f"Ligne {line_number} non reconnue : « {line} ». Utilise « Semaine 1 », puis « Séance 1 : 40 min EF »."
             )
         day_token = match.group("session_day") or match.group("day") or ""
         session_number = int(match.group("session_number")) if match.group("session_number") else None
@@ -321,7 +321,7 @@ def parse_workout_text(
             )
         )
     if not workouts:
-        raise WorkoutTextError("Aucune séance reconnue. Ajoute des lignes du type « Lundi : 40 min EF ».")
+        raise WorkoutTextError("Aucune séance reconnue. Ajoute des lignes du type « Séance 1 : 40 min EF ».")
 
     by_week: dict[int, list[ParsedWorkout]] = {}
     for workout in workouts:
