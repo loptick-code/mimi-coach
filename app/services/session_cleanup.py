@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from sqlalchemy import delete as sql_delete, update as sql_update
 from sqlmodel import Session as DBSession, select
 
 from app.models import Session as TrainingSession, Step
@@ -20,19 +21,16 @@ def delete_sessions_safely(db: DBSession, sessions: Iterable[TrainingSession]) -
         return
 
     session_ids = [session.id for session in sessions]
-    steps = db.exec(select(Step).where(Step.session_id.in_(session_ids))).all()
-    step_ids = [step.id for step in steps if step.id is not None]
-    dependent_steps = (
-        db.exec(select(Step).where(Step.parent_repeat_id.in_(step_ids))).all()
-        if step_ids
-        else []
-    )
-    for step in [*steps, *dependent_steps]:
-        if step.parent_repeat_id is not None:
-            step.parent_repeat_id = None
-            db.add(step)
-    db.flush()
-
-    for session in sessions:
-        db.delete(session)
+    step_ids = list(db.exec(select(Step.id).where(Step.session_id.in_(session_ids))).all())
+    if step_ids:
+        # Break the self-referencing FK in one UPDATE before deleting the
+        # steps in one DELETE. ORM cascades can schedule parent rows first and
+        # are both slower and unsafe for large generated plans.
+        db.exec(
+            sql_update(Step)
+            .where(Step.parent_repeat_id.in_(step_ids))
+            .values(parent_repeat_id=None)
+        )
+        db.exec(sql_delete(Step).where(Step.session_id.in_(session_ids)))
+    db.exec(sql_delete(TrainingSession).where(TrainingSession.id.in_(session_ids)))
     db.flush()
