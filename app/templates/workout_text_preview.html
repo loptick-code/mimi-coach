@@ -15,7 +15,7 @@
     {% for row in rows %}
     <article class="card card-pad">
       <div class="flex justify-between" style="gap:10px;align-items:start;">
-        <div><span class="pill pill-stone">Semaine {{ row.week_number }}</span><h2 style="font-size:15px;font-weight:800;margin-top:7px;">{{ row.weekday_label|capitalize }} {{ row.date.strftime('%d/%m/%Y') }} · {{ row.name }}</h2></div>
+        <div><span class="pill pill-stone">Semaine {{ row.week_number }}</span><h2 style="font-size:15px;font-weight:800;margin-top:7px;">Séance {{ row.session_number or loop.index }} · {{ row.name }}</h2></div>
       </div>
       <ol style="font-size:12px;color:var(--ink-muted);line-height:1.65;margin:8px 0 0 18px;list-style:decimal;">{% for step in row.steps %}<li>{{ step }}</li>{% endfor %}</ol>
     </article>

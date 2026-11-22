@@ -438,6 +438,7 @@ def _text_preview_context(
             "steps": steps,
             "week_number": workout.week_number,
             "weekday_label": workout.weekday_label,
+            "session_number": workout.session_number,
         })
     omitted_rows = [
         {"week_number": workout.week_number, "weekday_label": workout.weekday_label, "name": workout.name, "session_number": workout.session_number}

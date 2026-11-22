@@ -19,7 +19,10 @@ from app.services.training_paces import pace_to_seconds
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_DIR = ROOT / "training_plans" / "sources"
-DAY_BY_SESSION = {1: 0, 2: 2, 3: 4, 4: 6}  # lundi, mercredi, vendredi, dimanche
+# Les séances sont numérotées, pas prescrites par jour. La date reste un
+# emplacement technique pour le calendrier et l'export; l'athlète peut faire
+# chaque séance quand il le souhaite dans sa semaine.
+DAY_BY_SESSION = {1: 0, 2: 1, 3: 2, 4: 6}
 
 
 @dataclass

@@ -42,7 +42,7 @@ DURATION_RE = re.compile(
     re.IGNORECASE,
 )
 SESSION_RE = re.compile(
-    r"^(?:seance\s+(?P<session_number>\d+)\s*\((?P<session_day>[^)]+)\)|(?P<day>[a-z]+))\s*:\s*(?P<body>.+)$",
+    r"^(?:seance\s+(?P<session_number>\d+)(?:\s*\((?P<session_day>[^)]+)\))?|(?P<day>[a-z]+))\s*:\s*(?P<body>.+)$",
     re.IGNORECASE,
 )
 WEEK_RE = re.compile(r"^semaine\s+(\d+)\s*$", re.IGNORECASE)
@@ -286,9 +286,15 @@ def parse_workout_text(
                 f"Ligne {line_number} non reconnue : « {line} ». Utilise « Semaine 1 », puis « Lundi : 40 min EF »."
             )
         day_token = match.group("session_day") or match.group("day") or ""
-        weekday = DAY_INDEX.get(_norm(day_token))
-        if weekday is None:
-            raise WorkoutTextError(f"Ligne {line_number} : jour non reconnu (« {day_token} »).")
+        session_number = int(match.group("session_number")) if match.group("session_number") else None
+        if session_number is not None:
+            if not 1 <= session_number <= 4:
+                raise WorkoutTextError(f"Ligne {line_number} : le numéro de séance doit être entre 1 et 4.")
+            weekday = session_number - 1
+        else:
+            weekday = DAY_INDEX.get(_norm(day_token))
+            if weekday is None:
+                raise WorkoutTextError(f"Ligne {line_number} : jour non reconnu (« {day_token} »).")
         # The normalized line is used intentionally so parser behavior is accent-insensitive.
         body = match.group("body")
         steps = _parse_expression(body, pace_targets, ef_range)
@@ -305,7 +311,6 @@ def parse_workout_text(
             "Course",
         )
         source_order = len(workouts)
-        session_number = int(match.group("session_number")) if match.group("session_number") else None
         week_start = start_date + timedelta(days=(current_week - 1) * 7)
         workouts.append(
             ParsedWorkout(

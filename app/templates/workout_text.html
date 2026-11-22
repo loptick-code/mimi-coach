@@ -20,9 +20,9 @@
   <div class="card card-pad" style="margin-top:14px;">
     <h2 class="section-title">Format accepté</h2>
     <ul style="font-size:12px;color:var(--ink-muted);line-height:1.7;margin:10px 0 0 18px;list-style:disc;">
-      <li>Une ligne par séance, précédée d'un jour : <code>Lundi : 40 min EF</code>.</li>
+      <li>Une ligne par séance, avec son numéro : <code>Séance 1 : 40 min EF</code>. Le numéro indique l'ordre dans la semaine, pas un jour imposé.</li>
       <li>Une semaine commence par <code>Semaine 1</code>.</li>
-      <li>Tu peux numéroter les séances, par exemple <code>Séance 3 (samedi) : 40 min EF</code>. En mode 3 séances, une séance n° 3 explicitement indiquée est retirée, même s'il n'y a que trois séances renseignées. Sans numéros, la 3e ligne est retirée si 4 séances sont saisies.</li>
+      <li>En mode 3 séances, la séance n° 3 explicitement indiquée est retirée, même s'il n'y a que trois séances renseignées. Sans numéros, la 3e ligne est retirée si 4 séances sont saisies.</li>
       <li>Étapes séparées par <code>+</code>. Durées en secondes, minutes ou heures, distances en mètres ou kilomètres.</li>
       <li>Répétitions entre parenthèses : <code>6 x (3 min S60 + 1 min 30 récupération)</code>.</li>
       <li>Allures reconnues : EF, S60, S30, VMA, tempo, sweet spot, aérobie, allure 10 km/semi/marathon. Les allures du profil sont utilisées, ou indique une allure précise comme <code>4:30/km</code>.</li>
@@ -34,7 +34,7 @@
     <label><span class="field-label">Date du lundi de la première semaine</span><input type="date" name="start_date" value="{{ start_date }}" required class="input" /></label>
     <label>
       <span class="field-label">Séances à importer</span>
-      <textarea name="program_text" rows="14" required class="input" style="resize:vertical;font-family:ui-monospace,monospace;font-size:12px;line-height:1.6;" placeholder="Semaine 1&#10;Lundi : 40 min EF&#10;Mercredi : 15 min échauffement + 6 x (3 min S60 + 1 min 30 récupération) + 10 min retour au calme&#10;Samedi : 60 min EF&#10;Dimanche : 20 min EF + 20 min tempo + 10 min EF">{{ text }}</textarea>
+      <textarea name="program_text" rows="14" required class="input" style="resize:vertical;font-family:ui-monospace,monospace;font-size:12px;line-height:1.6;" placeholder="Semaine 1&#10;Séance 1 : 40 min EF&#10;Séance 2 : 15 min échauffement + 6 x (3 min S60 + 1 min 30 récupération) + 10 min retour au calme&#10;Séance 3 : 60 min EF&#10;Séance 4 : 20 min EF + 20 min tempo + 10 min EF">{{ text }}</textarea>
     </label>
     <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Analyser et voir l'aperçu</button>
   </form>
