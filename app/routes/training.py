@@ -375,7 +375,16 @@ def _generate_plan(db: DBSession, user: User, profile: TrainingProfile) -> Train
     return state
 
 
-def _profile_form_response(request: Request, profile_data: dict[str, Any], *, error: str | None = None, settings_mode: bool = False, saved: bool = False):
+def _profile_form_response(
+    request: Request,
+    profile_data: dict[str, Any],
+    *,
+    error: str | None = None,
+    settings_mode: bool = False,
+    saved: bool = False,
+    pace_change_warning: bool = False,
+    pending_form: Any = None,
+):
     auto_targets = calculate_pace_targets(profile_data["goal"], profile_data["ef_fast_sec_per_km"], profile_data["ef_slow_sec_per_km"]) if profile_data.get("ef_fast_sec_per_km") else {}
     targets = profile_data.get("pace_targets") or auto_targets
     return templates.TemplateResponse(
@@ -389,8 +398,33 @@ def _profile_form_response(request: Request, profile_data: dict[str, Any], *, er
             "error": error,
             "settings_mode": settings_mode,
             "saved": saved,
+            "pace_change_warning": pace_change_warning,
+            "pending_form": pending_form,
         },
     )
+
+
+def _profile_context_from_form(existing: TrainingProfile, data: dict[str, Any], form: Any) -> dict[str, Any]:
+    context = _profile_context(existing)
+    context.update({
+        "goal": data["goal"],
+        "race_date": data["race_date"].isoformat() if data["race_date"] else "",
+        "sessions_per_week": data["sessions_per_week"],
+        "ef_fast": str(form.get("ef_fast") or context["ef_fast"]),
+        "ef_slow": str(form.get("ef_slow") or context["ef_slow"]),
+    })
+    return context
+
+
+def _has_future_generated_sessions(db: DBSession, user: User) -> bool:
+    return db.exec(
+        select(Session.id)
+        .where(Session.athlete_id == user.id)
+        .where(Session.date >= date.today())
+        .where(Session.validated_at.is_(None))
+        .where(Session.description.like("Plan %"))
+        .limit(1)
+    ).first() is not None
 
 
 async def _form_or_error(request: Request) -> tuple[dict[str, Any] | None, Any, str | None]:
@@ -497,6 +531,15 @@ async def save_training_settings(request: Request, user: User = Depends(require_
         old_ef_fast = existing.ef_fast_sec_per_km if existing else None
         old_ef_slow = existing.ef_slow_sec_per_km if existing else None
         old_targets = _json_dict(existing.pace_targets_json) if existing else {}
+        confirmed_pace_update = str(form.get("confirm_pace_update") or "").lower() in ("1", "true", "on", "yes")
+        if pace_only_change and _has_future_generated_sessions(db, user) and not confirmed_pace_update:
+            return _profile_form_response(
+                request,
+                _profile_context_from_form(existing, data, form),
+                settings_mode=True,
+                pace_change_warning=True,
+                pending_form=form,
+            )
         profile = _store_profile(db, user, data, form, existing)
         if not pace_only_change:
             user.pace_adjustment_pct = 0.0
