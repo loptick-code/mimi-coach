@@ -47,6 +47,8 @@ class PlanWorkout:
     description: str
     difficulty: int
     steps: list[PlanStep]
+    estimated_duration_min: Optional[int] = None
+    estimated_distance_km: Optional[float] = None
 
 
 @dataclass
@@ -70,6 +72,8 @@ class ScheduledWorkout:
     description: str
     difficulty: int
     steps: list[PlanStep]
+    estimated_duration_min: Optional[int] = None
+    estimated_distance_km: Optional[float] = None
 
 
 _DURATION_RE = re.compile(
@@ -229,15 +233,42 @@ def _parse_sequence_simple(text: str) -> list[PlanStep]:
 
 
 def _body_after_summary(body: str) -> str:
-    # Les bulletins commencent souvent par « durée, distance, difficulté. ».
-    # On retire ce résumé, sans toucher aux phrases contenant les séances.
-    match = re.search(r"\b(?:difficulté|difficulte)\s*\d\s*/\s*5\s*\.\s*", body, re.IGNORECASE)
+    # Les bulletins commencent souvent par « durée, distance, difficulté. »
+    # ou par la même structure séparée par des virgules.
+    match = re.search(
+        r"\b(?:difficulté|difficulte)\s*\d\s*/\s*5\s*[,.:]\s*",
+        body,
+        re.IGNORECASE,
+    )
     if match:
-        return body[match.end():]
-    summary = re.match(r"^[^.]+\bkm\s*\.\s*", body, re.IGNORECASE)
+        return body[match.end():].strip()
+    summary = re.match(r"^[^.]+\bkm\s*[,.:]\s*", body, re.IGNORECASE)
     if summary:
-        return body[summary.end():]
-    return body
+        return body[summary.end():].strip()
+    return body.strip()
+
+
+def _summary_metadata(body: str) -> tuple[int | None, float | None, int | None]:
+    """Extrait les métadonnées du résumé placé au début d'une séance source."""
+    duration_match = _DURATION_RE.match(body.strip())
+    duration_min = None
+    if duration_match:
+        duration_type, duration_value = _duration(duration_match)
+        if duration_type == "time":
+            duration_min = round(duration_value / 60)
+    distance_match = re.search(
+        r"(?<![\d:])(?P<distance>\d+(?:[.,]\d+)?)\s*km\b",
+        body,
+        re.IGNORECASE,
+    )
+    distance_km = float(distance_match.group("distance").replace(",", ".")) if distance_match else None
+    difficulty_match = re.search(
+        r"\b(?:difficulté|difficulte)\s*(?P<difficulty>[1-5])\s*/\s*5\b",
+        body,
+        re.IGNORECASE,
+    )
+    difficulty = int(difficulty_match.group("difficulty")) if difficulty_match else None
+    return duration_min, distance_km, difficulty
 
 
 def _source_bullets(path: Path) -> dict[int, dict[int, tuple[str, str]]]:
@@ -256,7 +287,9 @@ def _source_bullets(path: Path) -> dict[int, dict[int, tuple[str, str]]]:
             heading = bullet.group("heading").strip(" ,:")
             body = bullet.group("body").strip(" ,:")
             title = heading or f"Séance {number}"
-            weeks[current_week][number] = (title, _body_after_summary(body))
+            # Conserver le résumé complet. _source_workout en extrait ensuite
+            # les métadonnées et la partie décrivant les étapes.
+            weeks[current_week][number] = (title, body)
     return weeks
 
 
@@ -283,24 +316,43 @@ def _easy_workout(week: int, number: int, minutes: int, name: str = "Endurance f
 
 
 def _source_workout(week: int, number: int, title: str, body: str, race_distance_m: float) -> PlanWorkout:
-    body = re.split(r"\.\s*(?:Total|Bloc actif|Bloc facultatif|Difficulté|Difficulte)\b", body, maxsplit=1, flags=re.IGNORECASE)[0]
+    duration_min, distance_km, source_difficulty = _summary_metadata(body)
+    workout_body = _body_after_summary(body)
+    workout_body = re.split(
+        r"\.\s*(?:Total|Bloc actif|Bloc facultatif|Difficulté|Difficulte)\b",
+        workout_body,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0].strip()
     race_text = _norm(f"{title} {body}")
     is_race = number == 4 and re.search(
         r"\b(?:course|competition|10\s*km|semi[- ]marathon|marathon)\b", race_text
     )
-    steps = _parse_sequence(body)
-    if not steps:
-        # Le plan reste disponible même si une formulation source est narrative.
-        total = _DURATION_RE.search(body)
-        duration = _duration(total)[1] if total else None
-        steps = [PlanStep(label=title, duration_seconds=duration, step_type="other")]
+
     if is_race:
-        race_label = _race_label(race_distance_m)
-        title = race_label
+        title = _race_label(race_distance_m)
         steps = [PlanStep(label="Course", distance_m=race_distance_m, target_key=None, step_type="other")]
+    elif duration_min and _target_key(workout_body) == "ef":
+        # Une sortie EF résumée (« 1 h, 12,33 km, ... entièrement en EF »)
+        # doit rester une seule étape EF. Parser le résumé comme une séquence
+        # créait auparavant un bloc « Course » puis une fausse distance.
+        steps = [PlanStep(label="EF", duration_seconds=duration_min * 60, target_key="ef", step_type="other")]
+    else:
+        steps = _parse_sequence(workout_body)
+        if not steps:
+            duration = duration_min * 60 if duration_min else None
+            steps = [PlanStep(label=title, duration_seconds=duration, step_type="other")]
+
     return PlanWorkout(
-        week_number=week, session_number=number, day_offset=DAY_BY_SESSION[number],
-        name=title, description=body[:1000], difficulty=3, steps=steps,
+        week_number=week,
+        session_number=number,
+        day_offset=DAY_BY_SESSION[number],
+        name=title,
+        description=body[:1000],
+        difficulty=source_difficulty or 3,
+        steps=steps,
+        estimated_duration_min=duration_min,
+        estimated_distance_km=distance_km,
     )
 
 
@@ -581,6 +633,8 @@ def generate_schedule(
             date=workout_date, name=workout.name, description=workout.description,
             difficulty=workout.difficulty,
             steps=[_scale_step(step, factor, ef_fast_seconds, ef_slow_seconds) for step in workout.steps],
+            estimated_duration_min=workout.estimated_duration_min,
+            estimated_distance_km=workout.estimated_distance_km,
         ))
 
     final_source_workout = next(

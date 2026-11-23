@@ -168,7 +168,18 @@
 {% macro session_timeline_dark(session, height=10) %}
   {% set top_level = session.steps | selectattr('parent_repeat_id', 'none') | list %}
   {% if top_level %}
-    {% set ns = namespace(total=0) %}
+    {% set ns = namespace(total=0, warmup=false, interval=false, recovery=false, cooldown=false, ef=false, course=false) %}
+    {% for s in session.steps %}
+      {% set step_type = s.type.value %}
+      {% set step_label = (s.label or '') | lower %}
+      {% if step_type == 'warmup' %}{% set ns.warmup = true %}
+      {% elif step_type == 'interval' %}{% set ns.interval = true %}
+      {% elif step_type == 'recovery' %}{% set ns.recovery = true %}
+      {% elif step_type == 'cooldown' %}{% set ns.cooldown = true %}
+      {% elif 'course' in step_label or 'compet' in step_label or 'marathon' in step_label %}{% set ns.course = true %}
+      {% else %}{% set ns.ef = true %}
+      {% endif %}
+    {% endfor %}
     {% for s in top_level %}
       {% if s.kind == 'repeat' %}
         {% set rcount = s.repeat_count or 1 %}
@@ -200,19 +211,13 @@
       {% endfor %}
     </div>
     <div class="flex flex-wrap" style="gap: 8px; margin-top: 10px; font-size: 10px; color: var(--ink-muted);">
-      {% set zones = [
-        ('Echauffement', 'warmup'),
-        ('Intervalle', 'interval'),
-        ('Recup', 'recovery'),
-        ('Retour calme', 'cooldown'),
-        ('Course', 'other'),
-      ] %}
-      {% for label, key in zones %}
-        <span class="inline-flex items-center" style="gap: 4px;">
-          <span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-{{ key }});"></span>
-          {{ label }}
-        </span>
-      {% endfor %}
+      {% if ns.warmup %}<span class="inline-flex items-center" style="gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-warmup);"></span>Échauffement</span>{% endif %}
+      {% if ns.interval %}<span class="inline-flex items-center" style="gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-interval);"></span>Intervalle</span>{% endif %}
+      {% if ns.recovery %}<span class="inline-flex items-center" style="gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-recovery);"></span>Récupération</span>{% endif %}
+      {% if ns.cooldown %}<span class="inline-flex items-center" style="gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-cooldown);"></span>Retour calme</span>{% endif %}
+      {% if ns.ef and ns.course %}<span class="inline-flex items-center" style="gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-other);"></span>EF / Course</span>
+      {% elif ns.ef %}<span class="inline-flex items-center" style="gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-other);"></span>EF</span>
+      {% elif ns.course %}<span class="inline-flex items-center" style="gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--zone-other);"></span>Course</span>{% endif %}
     </div>
   {% endif %}
 {% endmacro %}

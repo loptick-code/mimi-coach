@@ -357,7 +357,9 @@ def _generate_plan(db: DBSession, user: User, profile: TrainingProfile) -> Train
         db.add(session)
         db.flush()
         steps = _create_plan_steps(db, session.id, planned.steps)
-        session.estimated_duration_min, session.estimated_distance_km = estimate_duration_and_distance(steps)
+        estimated_duration, estimated_distance = estimate_duration_and_distance(steps)
+        session.estimated_duration_min = planned.estimated_duration_min or estimated_duration
+        session.estimated_distance_km = planned.estimated_distance_km or estimated_distance
         db.add(session)
         generated_ids.append(str(session.id))
 
