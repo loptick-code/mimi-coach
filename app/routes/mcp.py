@@ -33,6 +33,11 @@ from app.models import (
     TrainingPlanState,
     User,
 )
+from app.services.mcp_session_changes import (
+    SessionChangeError,
+    apply_change_plan,
+    build_change_plan,
+)
 from app.services.program_import import (
     MAX_PROGRAM_CHARS,
     ProgramImportError,
@@ -46,7 +51,7 @@ router = APIRouter()
 
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_NAME = "Mi Coach"
-MCP_SERVER_VERSION = "0.3.0"
+MCP_SERVER_VERSION = "0.4.0"
 MCP_SCOPES = {"profile:read", "plan:read", "activity:read", "plan:write"}
 MCP_READ_SCOPES = {"profile:read", "plan:read", "activity:read"}
 _MAX_TOKENS_PER_USER = 10
@@ -348,6 +353,39 @@ def _tool_definitions(scopes: frozenset[str]) -> list[dict[str, Any]]:
         tools.extend(
             [
                 {
+                    "name": "preview_session_changes",
+                    "description": "Prévisualiser des créations, modifications, déplacements ou suppressions de séances futures, sans modifier le programme.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["operations"],
+                        "properties": {
+                            "operations": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "description": "Opérations create, update, move ou delete. Les séances passées, validées ou envoyées à Garmin sont protégées.",
+                                "items": {"type": "object"}
+                            }
+                        },
+                        "additionalProperties": False,
+                    },
+                    "annotations": _preview_annotations(),
+                },
+                {
+                    "name": "apply_session_changes",
+                    "description": "Appliquer des créations, modifications, déplacements ou suppressions après confirmation explicite et vérification anti-conflit.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["proposal_id", "confirm"],
+                        "properties": {
+                            "proposal_id": {"type": "string"},
+                            "confirm": {"type": "boolean"},
+                        },
+                        "additionalProperties": False,
+                    },
+                    "annotations": _write_annotations(),
+                },
+                {
                     "name": "preview_program_change",
                     "description": "Valider un fichier Markdown Mi Coach, calculer le diff et créer une proposition sans modifier le programme.",
                     "annotations": _preview_annotations(),
@@ -461,6 +499,62 @@ def _call_tool(
                 "sessions": [_session_payload(session, include_steps) for session in sessions],
             }
         )
+
+    if name == "preview_session_changes":
+        plan = build_change_plan(db, user, arguments.get("operations"))
+        proposal_id = _new_identifier("prop_")
+        expires_at = _utc_now() + _PROPOSAL_TTL
+        preview = {
+            "proposal_id": proposal_id,
+            "expires_at": expires_at,
+            **plan.preview,
+            "warning": "Les suppressions et modifications sont limitées aux séances futures non validées et non envoyées à Garmin.",
+        }
+        db.add(
+            MCPChangeProposal(
+                proposal_id=proposal_id,
+                user_id=user.id,
+                operation="session_changes",
+                payload_json=json.dumps({"operations": plan.operations}, ensure_ascii=False, default=str),
+                preview_json=json.dumps(preview, ensure_ascii=False, default=str),
+                current_fingerprint=_fingerprint_plan(db, user.id),
+                expires_at=expires_at,
+            )
+        )
+        db.commit()
+        return _tool_text(preview)
+
+    if name == "apply_session_changes":
+        proposal_id = arguments.get("proposal_id")
+        if not isinstance(proposal_id, str):
+            raise ValueError("proposal_id est obligatoire")
+        if arguments.get("confirm") is not True:
+            raise ValueError("confirm=true est obligatoire pour appliquer une proposition")
+        proposal = db.exec(
+            select(MCPChangeProposal)
+            .where(MCPChangeProposal.proposal_id == proposal_id)
+            .where(MCPChangeProposal.user_id == user.id)
+            .where(MCPChangeProposal.operation == "session_changes")
+        ).first()
+        if proposal is None:
+            raise ValueError("Proposition inconnue ou non accessible")
+        now = _utc_now()
+        if proposal.applied_at is not None:
+            raise ValueError("Cette proposition a déjà été appliquée")
+        if proposal.expires_at <= now:
+            raise ValueError("Cette proposition a expiré. Crée un nouvel aperçu")
+        if proposal.current_fingerprint != _fingerprint_plan(db, user.id):
+            raise ValueError("Le programme a changé depuis l'aperçu. Crée une nouvelle proposition")
+        payload = json.loads(proposal.payload_json)
+        try:
+            plan = build_change_plan(db, user, payload["operations"])
+            created = apply_change_plan(db, user, plan)
+        except SessionChangeError as exc:
+            raise ValueError(str(exc)) from exc
+        proposal.applied_at = now
+        db.add(proposal)
+        db.commit()
+        return _tool_text({"applied": True, "proposal_id": proposal_id, "created_sessions": created})
 
     if name == "preview_program_change":
         markdown = arguments.get("markdown")
