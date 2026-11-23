@@ -79,7 +79,7 @@
             <span class="field-label">{{ pace.label }}</span>
             <input type="text" name="pace_{{ pace.key }}" value="{{ pending_form.get('pace_' ~ pace.key, pace.value) if pending_form else pace.value }}" placeholder="{{ 'À saisir' if profile.goal == 'marathon' and not pace.value else '4:30' }}" class="input pace-value" inputmode="numeric" data-key="{{ pace.key }}" />
             <span style="font-size:10px;color:var(--ink-muted);display:flex;align-items:center;gap:5px;margin-top:4px;">
-              <input type="checkbox" name="manual_{{ pace.key }}" value="1" class="manual-pace" data-key="{{ pace.key }}" {% if pending_form and pending_form.get('manual_' ~ pace.key) else pace.manual %}checked{% endif %} />Personnalisée
+              <input type="checkbox" name="manual_{{ pace.key }}" value="1" class="manual-pace" data-key="{{ pace.key }}" {% if (pending_form and pending_form.get('manual_' ~ pace.key)) or (not pending_form and pace.manual) %}checked{% endif %} />Personnalisée
               {% if pace.value and not pace.manual %}<span>· calculée</span>{% endif %}
             </span>
           </label>
