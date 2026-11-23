@@ -146,7 +146,9 @@ def _step_from_segment(segment: str) -> Optional[PlanStep]:
         key, step_type = "ef", "other"
     elif re.search(r"\b(?:rapide|sprint|lignes droites|aux sensations|effort libre)\b", normalized):
         key, step_type = None, "interval"
-    elif key in {"ef", "tempo", "s60", "s30", "vma", "sweet_spot", "aerobic", "race_10k", "race_half", "race_marathon"}:
+    elif key == "ef":
+        step_type = "other"
+    elif key in {"tempo", "s60", "s30", "vma", "sweet_spot", "aerobic", "race_10k", "race_half", "race_marathon"}:
         step_type = "interval"
     elif re.search(r"\b(?:recup|lente?|repos)\b", normalized):
         key, step_type = None, "recovery"
@@ -332,10 +334,14 @@ def _source_workout(week: int, number: int, title: str, body: str, race_distance
     if is_race:
         title = _race_label(race_distance_m)
         steps = [PlanStep(label="Course", distance_m=race_distance_m, target_key=None, step_type="other")]
-    elif duration_min and _target_key(workout_body) == "ef":
-        # Une sortie EF résumée (« 1 h, 12,33 km, ... entièrement en EF »)
-        # doit rester une seule étape EF. Parser le résumé comme une séquence
-        # créait auparavant un bloc « Course » puis une fausse distance.
+    elif duration_min and re.search(
+        r"\b(?:entièrement|entierement|uniquement|seulement)\s+en\s+ef\b",
+        workout_body,
+        re.IGNORECASE,
+    ):
+        # Une sortie explicitement entièrement en EF doit rester une seule étape.
+        # La présence de EF dans une séance fractionnée ne suffit pas à déclencher
+        # ce cas, car les séances d'intervalles commencent souvent par un bloc EF.
         steps = [PlanStep(label="EF", duration_seconds=duration_min * 60, target_key="ef", step_type="other")]
     else:
         steps = _parse_sequence(workout_body)

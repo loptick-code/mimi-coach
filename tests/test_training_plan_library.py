@@ -7,6 +7,20 @@ from app.services.training_plan_library import generate_schedule, get_plan
 
 
 class TrainingPlanLibraryTests(unittest.TestCase):
+    def test_10k_workouts_keep_interval_repeats_and_ef_steps(self):
+        from app.services.training_plan_library import _load_10k
+
+        plan = _load_10k()
+        workout = next(item for item in plan.workouts if item.week_number == 2 and item.session_number == 2)
+
+        self.assertEqual(workout.steps[0].label, "EF")
+        self.assertEqual(workout.steps[0].step_type, "other")
+        self.assertEqual(workout.steps[1].repeat_count, 6)
+        self.assertEqual(workout.steps[1].children[0].label, "Seuil 60")
+        self.assertEqual(workout.steps[1].children[0].step_type, "interval")
+        self.assertEqual(workout.steps[1].children[1].label, "Récupération")
+        self.assertEqual(workout.steps[1].children[1].step_type, "recovery")
+
     def test_objectives_have_library_templates(self):
         self.assertEqual(get_plan("10k").weeks, 13)
         self.assertEqual(get_plan("half").weeks, 15)
