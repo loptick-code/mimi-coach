@@ -41,6 +41,9 @@ async def login_submit(
             status_code=400,
         )
     login_user(request, user)
+    pending = request.session.pop("mcp_oauth_return_to", None)
+    if isinstance(pending, str) and pending.startswith("/oauth/authorize"):
+        return RedirectResponse(url=pending, status_code=303)
     return RedirectResponse(url="/", status_code=303)
 
 

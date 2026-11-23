@@ -155,6 +155,55 @@ class MCPToken(SQLModel, table=True):
     created_at: _dt.datetime = Field(default_factory=_utc_now)
     last_used_at: Optional[_dt.datetime] = Field(default=None)
     revoked_at: Optional[_dt.datetime] = Field(default=None)
+    client_id: Optional[str] = Field(default=None, index=True)
+    expires_at: Optional[_dt.datetime] = Field(default=None, index=True)
+
+
+class MCPClient(SQLModel, table=True):
+    """Client OAuth public enregistré par un assistant MCP."""
+
+    __tablename__ = "mcp_client"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_id: str = Field(unique=True, index=True)
+    client_name: str = Field(default="Assistant MCP", max_length=120)
+    redirect_uris_json: str = Field(default="[]")
+    created_at: _dt.datetime = Field(default_factory=_utc_now)
+
+
+class MCPAuthorizationCode(SQLModel, table=True):
+    """Code OAuth à usage unique, protégé par PKCE."""
+
+    __tablename__ = "mcp_authorization_code"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code_hash: str = Field(unique=True, index=True)
+    client_id: str = Field(index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    redirect_uri: str
+    scope: str
+    code_challenge: str
+    code_challenge_method: str = Field(default="S256")
+    created_at: _dt.datetime = Field(default_factory=_utc_now)
+    expires_at: _dt.datetime = Field(index=True)
+    consumed_at: Optional[_dt.datetime] = Field(default=None)
+
+
+class MCPChangeProposal(SQLModel, table=True):
+    """Proposition de changement MCP, séparée de son application effective."""
+
+    __tablename__ = "mcp_change_proposal"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    proposal_id: str = Field(unique=True, index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    operation: str
+    payload_json: str
+    preview_json: str
+    current_fingerprint: str
+    created_at: _dt.datetime = Field(default_factory=_utc_now)
+    expires_at: _dt.datetime = Field(index=True)
+    applied_at: Optional[_dt.datetime] = Field(default=None)
 
 
 class TrainingPlanState(SQLModel, table=True):

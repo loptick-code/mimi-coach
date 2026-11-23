@@ -9,7 +9,7 @@
 
   <h1 class="display-xl">Connecter<br/><span style="color: var(--accent);">une IA.</span></h1>
   <p style="font-size: 13px; color: var(--ink-muted); margin-top: 12px;">
-    Connecte un assistant compatible MCP à ton compte Mi Coach. Cette première version permet uniquement de lire ton profil et ton programme. Elle ne peut pas encore modifier tes séances.
+    Connecte un assistant compatible MCP à ton compte Mi Coach. L’autorisation OAuth protège ton compte et les changements passent toujours par un aperçu puis une confirmation.
   </p>
 
   {% if request.query_params.get('error') == 'limit' %}
@@ -32,7 +32,7 @@
 
   <div class="card card-pad" style="margin-top: 20px;">
     <h2 class="section-title" style="margin-bottom: 10px;">Nouvelle connexion</h2>
-    <p style="font-size: 13px; color: var(--ink-muted); margin-bottom: 16px;">Crée un token personnel pour un assistant précis. Tu peux le révoquer à tout moment.</p>
+    <p style="font-size: 13px; color: var(--ink-muted); margin-bottom: 16px;">Crée un token de lecture pour les clients qui ne proposent pas encore la connexion OAuth. Pour modifier le programme, utilise la connexion OAuth du client MCP.</p>
     <form method="post" action="/settings/mcp/tokens" class="flex flex-col" style="gap: 12px;">
       <label>
         <span class="field-label">Nom de la connexion</span>
@@ -71,7 +71,7 @@
 
   <div class="card" style="margin-top: 24px; padding: 14px 16px; background: rgba(14,14,14,.04);">
     <div class="micro-label">Sécurité</div>
-    <p style="font-size: 12px; color: var(--ink-muted); margin-top: 7px; line-height: 1.5;">Le token donne accès uniquement à ton compte et uniquement aux outils de lecture actuellement disponibles. Ne le publie pas dans un prompt partagé ou dans un dépôt Git.</p>
+    <p style="font-size: 12px; color: var(--ink-muted); margin-top: 7px; line-height: 1.5;">Les tokens manuels donnent uniquement accès à ton compte et aux outils de lecture. Les clients OAuth peuvent demander l’écriture, mais Mi Coach demande toujours une confirmation avant d’appliquer un changement. Ne publie jamais un token dans un prompt partagé ou dans un dépôt Git.</p>
   </div>
 </div>
 {% endblock %}
