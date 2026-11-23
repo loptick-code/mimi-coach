@@ -121,12 +121,12 @@ class TrainingProfile(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", unique=True, index=True)
-    goal: str = Field(default="10k")  # 10k | half | marathon
+    goal: str = Field(default="10k")  # 10k | half | marathon | other
     race_date: Optional[_dt.date] = Field(default=None)
     experience: str = Field(default="regular")  # beginner | returning | regular
     current_runs_per_week: int = Field(default=3, ge=0, le=7)
     longest_run_km: Optional[float] = Field(default=None, ge=0, le=100)
-    sessions_per_week: int = Field(default=4, ge=3, le=4)
+    sessions_per_week: int = Field(default=4, ge=1, le=6)
     available_days: str = Field(default="")  # liste CSV des jours autorisés
     ef_fast_sec_per_km: Optional[int] = Field(default=None, ge=1)
     ef_slow_sec_per_km: Optional[int] = Field(default=None, ge=1)

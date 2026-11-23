@@ -86,4 +86,4 @@ def calculate_pace_targets(
 
 
 def supported_goal(goal: str) -> bool:
-    return goal in {"10k", "half", "marathon"}
+    return goal in {"10k", "half", "marathon", "other"}

@@ -5,16 +5,16 @@
   <a href="/onboarding" class="btn btn-ghost btn-sm" style="margin-bottom:14px;">← Modifier</a>
   <span class="pill pill-accent">Plan proposé</span>
   <h1 class="display-l" style="margin-top:10px;">Vérifie ton calendrier</h1>
-  <p style="font-size:12px;color:var(--ink-muted);margin-top:8px;">Le plan est placé à rebours depuis la date de course. Les séances passées ne sont pas recréées, seules les séances à faire à partir d’aujourd’hui sont ajoutées.</p>
+  <p style="font-size:12px;color:var(--ink-muted);margin-top:8px;">{% if profile.goal == 'other' %}Aucun plan automatique ne sera créé. Tu pourras importer ou créer tes séances manuellement.{% else %}Le plan est placé à rebours depuis la date de course. Les séances passées ne sont pas recréées, seules les séances à faire à partir d’aujourd’hui sont ajoutées.{% endif %}</p>
 
   <div class="card card-pad" style="margin-top:16px;">
     <p><strong>Objectif :</strong> {{ goal_labels[profile.goal] }}</p>
-    <p style="margin-top:6px;"><strong>Course :</strong> {{ profile.race_date }}</p>
+    <p style="margin-top:6px;"><strong>Date de course :</strong> {{ profile.race_date or 'Aucune' }}</p>
     <p style="margin-top:6px;"><strong>Rythme :</strong> {{ profile.sessions_per_week }} séances par semaine{% if profile.sessions_per_week == 3 %}, avec retrait de la séance n° 3{% endif %}</p>
-    <p style="margin-top:6px;"><strong>EF :</strong> {{ profile.ef_fast }}–{{ profile.ef_slow }}/km</p>
+    {% if profile.ef_fast and profile.ef_slow %}<p style="margin-top:6px;"><strong>EF :</strong> {{ profile.ef_fast }}–{{ profile.ef_slow }}/km</p>{% endif %}
   </div>
 
-  <div class="card card-pad" style="margin-top:12px;">
+  {% if plan %}<div class="card card-pad" style="margin-top:12px;">
     <h2 class="section-title">{{ plan.label }} · {{ plan.weeks }} semaines</h2>
     <div class="flex flex-col" style="gap:7px;margin-top:12px;">
       <div class="flex justify-between" style="border-bottom:1px solid var(--line);padding:6px 0;"><span>Première séance à venir</span><strong>{{ schedule_start.strftime('%d/%m/%Y') }}</strong></div>
@@ -28,6 +28,7 @@
     <p style="font-size:12px;line-height:1.5;margin-top:6px;">En confirmant, Mi Coach va créer les séances futures de ce plan pour ton compte. Si tu modifies ensuite l’objectif, la date, le nombre de séances ou l’EF, les séances futures générées par ce plan seront recalculées. Les séances passées ou créées manuellement ne sont pas supprimées.</p>
   </div>
 
+  {% endif %}
   <form method="post" action="/onboarding/save" class="flex flex-col" style="gap:8px;margin-top:16px;">
     {% for key in ['goal','sessions_per_week','race_date','ef_fast','ef_slow'] %}
       <input type="hidden" name="{{ key }}" value="{{ profile[key] }}" />
