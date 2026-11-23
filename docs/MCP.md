@@ -34,7 +34,16 @@ Tous les tokens peuvent utiliser :
 Un token OAuth qui possède `plan:write` peut aussi utiliser :
 
 - `preview_program_change`, pour valider un fichier Markdown et créer une proposition ;
-- `apply_program_change`, pour appliquer une proposition après confirmation explicite.
+- `apply_program_change`, pour appliquer une proposition après confirmation explicite ;
+- `preview_session_changes`, pour créer, modifier, déplacer ou supprimer plusieurs séances futures ;
+- `apply_session_changes`, pour appliquer ces opérations après confirmation explicite.
+
+Les opérations individuelles acceptées sont :
+
+- `create`, créer une séance future avec ses étapes ;
+- `update`, modifier la date, le nom, la description, la difficulté, les étapes ou les cibles d'allure ;
+- `move`, déplacer une séance future à une autre date ;
+- `delete`, supprimer une séance future.
 
 ## Écriture sécurisée
 
@@ -48,7 +57,7 @@ Une modification ne se fait jamais en un seul appel :
 6. Mi Coach vérifie que le programme n'a pas changé depuis l'aperçu ;
 7. Mi Coach applique exactement la proposition, ou refuse si elle a expiré ou est devenue obsolète.
 
-Les séances passées ou validées restent protégées. Les séances futures non validées ne sont remplacées que si la proposition l'autorise explicitement.
+Les séances passées, validées, réalisées ou envoyées vers Garmin restent protégées. Les séances futures non validées peuvent être créées, modifiées, déplacées ou supprimées uniquement via une proposition confirmée. Une proposition est limitée à 20 opérations et expire après dix minutes.
 
 ## Token manuel de lecture
 
