@@ -31,6 +31,19 @@ class TrainingPlanLibraryTests(unittest.TestCase):
         source_first = next(item for item in schedule if item.date == source_start and item.session_number == 1)
         self.assertEqual(source_first.date.weekday(), 0)
 
+    def test_source_easy_long_run_preserves_summary_metadata_and_ef_step(self):
+        from app.services.training_plan_library import _load_semi
+
+        plan = _load_semi()
+        workout = next(item for item in plan.workouts if item.week_number == 4 and item.session_number == 4)
+
+        self.assertEqual(workout.difficulty, 1)
+        self.assertEqual(workout.estimated_duration_min, 60)
+        self.assertAlmostEqual(workout.estimated_distance_km, 12.33, places=2)
+        self.assertEqual(len(workout.steps), 1)
+        self.assertEqual(workout.steps[0].label, "EF")
+        self.assertEqual(workout.steps[0].duration_seconds, 3600)
+
     def test_non_sunday_race_keeps_each_program_week_monday_to_sunday(self):
         race_date = date(2027, 4, 17)  # samedi
         _, schedule = generate_schedule("half", race_date, 300, 330, 4, today=date(2026, 11, 22))

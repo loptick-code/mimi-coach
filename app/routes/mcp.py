@@ -46,7 +46,7 @@ router = APIRouter()
 
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_NAME = "Mi Coach"
-MCP_SERVER_VERSION = "0.2.0"
+MCP_SERVER_VERSION = "0.3.0"
 MCP_SCOPES = {"profile:read", "plan:read", "activity:read", "plan:write"}
 MCP_READ_SCOPES = {"profile:read", "plan:read", "activity:read"}
 _MAX_TOKENS_PER_USER = 10
@@ -281,12 +281,40 @@ def _fingerprint_plan(db: DBSession, user_id: int) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+def _read_annotations() -> dict[str, bool]:
+    return {
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+
+
+def _preview_annotations() -> dict[str, bool]:
+    return {
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    }
+
+
+def _write_annotations() -> dict[str, bool]:
+    return {
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    }
+
+
 def _tool_definitions(scopes: frozenset[str]) -> list[dict[str, Any]]:
     tools = [
         {
             "name": "get_my_profile",
             "description": "Lire le profil running et les réglages d'allure de l'utilisateur connecté.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+            "annotations": _read_annotations(),
         },
         {
             "name": "get_my_training_plan",
@@ -300,6 +328,20 @@ def _tool_definitions(scopes: frozenset[str]) -> list[dict[str, Any]]:
                 },
                 "additionalProperties": False,
             },
+            "annotations": _read_annotations(),
+        },
+        {
+            "name": "get_my_recent_activities",
+            "description": "Lire les séances récentes déjà réalisées, leurs ressentis et les données réellement enregistrées.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "weeks": {"type": "integer", "minimum": 1, "maximum": 24, "default": 8},
+                    "include_steps": {"type": "boolean", "default": False},
+                },
+                "additionalProperties": False,
+            },
+            "annotations": _read_annotations(),
         },
     ]
     if "plan:write" in scopes:
@@ -308,6 +350,7 @@ def _tool_definitions(scopes: frozenset[str]) -> list[dict[str, Any]]:
                 {
                     "name": "preview_program_change",
                     "description": "Valider un fichier Markdown Mi Coach, calculer le diff et créer une proposition sans modifier le programme.",
+                    "annotations": _preview_annotations(),
                     "inputSchema": {
                         "type": "object",
                         "required": ["markdown"],
@@ -321,6 +364,7 @@ def _tool_definitions(scopes: frozenset[str]) -> list[dict[str, Any]]:
                 {
                     "name": "apply_program_change",
                     "description": "Appliquer une proposition de programme après confirmation explicite de l'utilisateur.",
+                    "annotations": _write_annotations(),
                     "inputSchema": {
                         "type": "object",
                         "required": ["proposal_id", "confirm"],
@@ -341,6 +385,8 @@ def _required_scope(tool_name: str) -> str:
         return "profile:read"
     if tool_name == "get_my_training_plan":
         return "plan:read"
+    if tool_name == "get_my_recent_activities":
+        return "activity:read"
     return "plan:write"
 
 
@@ -389,6 +435,30 @@ def _call_tool(
                 "to_date": to_date,
                 "truncated": truncated,
                 "sessions": [_session_payload(session, include_steps) for session in sessions[:_MAX_SESSIONS]],
+            }
+        )
+
+    if name == "get_my_recent_activities":
+        weeks = arguments.get("weeks", 8)
+        if not isinstance(weeks, int) or isinstance(weeks, bool) or not 1 <= weeks <= 24:
+            raise ValueError("weeks doit être un entier compris entre 1 et 24")
+        include_steps = bool(arguments.get("include_steps", False))
+        today = date.today()
+        from_date = today - timedelta(weeks=weeks)
+        sessions = db.exec(
+            select(TrainingSession)
+            .where(TrainingSession.athlete_id == user.id)
+            .where(TrainingSession.date >= from_date)
+            .where(TrainingSession.date <= today)
+            .order_by(TrainingSession.date.desc(), TrainingSession.id.desc())
+            .limit(_MAX_SESSIONS)
+        ).all()
+        return _tool_text(
+            {
+                "user_id": user.id,
+                "from_date": from_date,
+                "to_date": today,
+                "sessions": [_session_payload(session, include_steps) for session in sessions],
             }
         )
 

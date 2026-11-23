@@ -28,7 +28,8 @@ Les permissions sont séparées :
 Tous les tokens peuvent utiliser :
 
 - `get_my_profile`, pour lire le profil, les allures et le plan actif ;
-- `get_my_training_plan`, pour lire les séances, les étapes, les ressentis et les informations Garmin disponibles.
+- `get_my_training_plan`, pour lire les séances, les étapes, les ressentis et les informations Garmin disponibles ;
+- `get_my_recent_activities`, pour lire les séances passées et les données réellement enregistrées afin d'adapter le coaching.
 
 Un token OAuth qui possède `plan:write` peut aussi utiliser :
 
@@ -70,3 +71,7 @@ Les tokens manuels sont limités à la lecture. Ils ne peuvent pas modifier le p
 - Les propositions de modification expirent après dix minutes.
 - Les requêtes navigateur cross-origin sont rejetées par le serveur MCP.
 - L'accès à Garmin n'est pas automatiquement élargi par MCP.
+
+## Permissions des outils
+
+Les outils de lecture déclarent explicitement qu'ils sont non destructifs et idempotents. Cela permet aux clients comme Claude de mieux distinguer la lecture d'une modification. Les outils d'écriture restent marqués comme destructifs et doivent conserver une confirmation explicite.
