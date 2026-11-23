@@ -521,7 +521,12 @@ def generate_schedule(
     plan = get_plan(goal)
     reference = plan.reference_ef_seconds
     factor = ((ef_fast_seconds + ef_slow_seconds) / 2) / reference
-    final_monday = race_date - timedelta(days=plan.race_day_offset)
+    # Une course peut avoir lieu n'importe quel jour. La semaine du plan
+    # commence toujours le lundi qui contient la course, plutôt que de supposer
+    # que la course a lieu le dimanche. Sinon, une course un samedi décale les
+    # séances et fait apparaître la séance 1 de la semaine suivante le dimanche
+    # de la semaine précédente.
+    final_monday = race_date - timedelta(days=race_date.weekday())
     first_monday = final_monday - timedelta(weeks=plan.weeks - 1)
     earliest = today or date.today()
     current_monday = earliest - timedelta(days=earliest.weekday())
@@ -555,9 +560,17 @@ def generate_schedule(
     for workout in plan.workouts:
         if sessions_per_week == 3 and workout.session_number == 3:
             continue
-        workout_date = first_monday + timedelta(
-            weeks=workout.week_number - 1,
-            days=workout.day_offset,
+        is_final_race = (
+            workout.week_number == plan.weeks
+            and _is_race_workout(workout, plan.race_distance_m)
+        )
+        workout_date = (
+            race_date
+            if is_final_race
+            else first_monday + timedelta(
+                weeks=workout.week_number - 1,
+                days=workout.day_offset,
+            )
         )
         if workout_date < earliest or workout_date > race_date:
             continue

@@ -31,6 +31,22 @@ class TrainingPlanLibraryTests(unittest.TestCase):
         source_first = next(item for item in schedule if item.date == source_start and item.session_number == 1)
         self.assertEqual(source_first.date.weekday(), 0)
 
+    def test_non_sunday_race_keeps_each_program_week_monday_to_sunday(self):
+        race_date = date(2027, 4, 17)  # samedi
+        _, schedule = generate_schedule("half", race_date, 300, 330, 4, today=date(2026, 11, 22))
+
+        source_start = race_date - timedelta(days=race_date.weekday()) - timedelta(weeks=14)
+        source_first = next(item for item in schedule if item.date == source_start and item.session_number == 1)
+        self.assertEqual(source_first.date.weekday(), 0)
+        self.assertEqual(schedule[-1].date, race_date)
+        self.assertEqual(schedule[-1].session_number, 4)
+        self.assertTrue(all(item.date.weekday() == 0 for item in schedule if item.session_number == 1))
+
+        for item in schedule:
+            week_start = item.date - timedelta(days=item.date.weekday())
+            self.assertGreaterEqual(item.date, week_start)
+            self.assertLessEqual(item.date, week_start + timedelta(days=6))
+
     def test_long_lead_time_adds_general_preparation_before_source_plan(self):
         race_date = date(2027, 3, 14)
         _, schedule = generate_schedule("10k", race_date, 300, 330, 4, today=date(2026, 11, 22))
