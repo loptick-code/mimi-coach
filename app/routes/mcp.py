@@ -814,11 +814,10 @@ async def mcp_settings_page(
         .where(MCPToken.revoked_at.is_(None))
         .order_by(MCPToken.created_at.desc())
     ).all()
-    new_token = request.session.pop("mcp_new_token", None)
     return templates.TemplateResponse(
         request,
         "settings_mcp.html",
-        {"user": user, "tokens": tokens, "new_token": new_token, "error": None},
+        {"user": user, "tokens": tokens, "new_token": None, "error": None},
     )
 
 
@@ -850,8 +849,18 @@ async def create_mcp_token(
         )
     )
     db.commit()
-    request.session["mcp_new_token"] = raw_token
-    return RedirectResponse(url="/settings/mcp?created=1", status_code=303)
+    tokens = db.exec(
+        select(MCPToken)
+        .where(MCPToken.user_id == user.id)
+        .where(MCPToken.revoked_at.is_(None))
+        .order_by(MCPToken.created_at.desc())
+    ).all()
+    request.state.user = user
+    return templates.TemplateResponse(
+        request,
+        "settings_mcp.html",
+        {"user": user, "tokens": tokens, "new_token": raw_token, "error": None},
+    )
 
 
 @router.post("/settings/mcp/tokens/{token_id}/revoke")

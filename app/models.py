@@ -141,7 +141,8 @@ class MCPToken(SQLModel, table=True):
 
     La valeur en clair n'est jamais stockée. Elle n'est affichée qu'une seule
     fois lors de sa création, puis seul son hash permet de l'identifier.
-    Cette première version est volontairement limitée à la lecture.
+    Les tokens manuels sont limités à la lecture ; les tokens OAuth peuvent
+    aussi porter le scope d'écriture après consentement explicite.
     """
 
     __tablename__ = "mcp_token"
