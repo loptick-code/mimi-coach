@@ -94,7 +94,8 @@ app/
 tests/
 └── test_workout_builder.py  # 11 tests sur la conversion Session->Workout
 scripts/
-└── reset_all_data.py        # Reset manuel avec aperçu et confirmation explicite
+├── reset_all_data.py        # Reset complet avec aperçu et confirmation explicite
+└── reset_athletes.py        # Reset des athlètes en conservant le compte coach
 ```
 
 ## Tests

@@ -128,6 +128,24 @@ Cette opération supprime les comptes, séances, étapes, ressentis et connexion
 
 Sans la phrase de confirmation exacte, le script n'efface rien. Il refuse aussi les emails `example.com`, les mots de passe par défaut et les emails de compte dupliqués. Mets à jour les variables d'environnement avant le reset si tu veux de nouveaux identifiants.
 
+### Réinitialiser uniquement les athlètes
+
+Pour conserver le compte coach et ses données, utilise `reset_athletes.py` plutôt que `reset_all_data.py`. Le compte identifié par `COACH_EMAIL` est conservé ; les autres comptes, leurs séances, profils, ressentis, connexions Garmin et tokens MCP sont supprimés. Les nouveaux athlètes sont recréés depuis `ATHLETE_*`.
+
+1. Laisse `COACH_EMAIL` et `COACH_PASSWORD` inchangés.
+2. Mets à jour `ATHLETE_EMAIL` / `ATHLETE_PASSWORD` et, si besoin, `ATHLETE2_EMAIL` / `ATHLETE2_PASSWORD`.
+3. Fais une sauvegarde Supabase.
+4. Affiche l'aperçu :
+   ```bash
+   python -m scripts.reset_athletes
+   ```
+5. Vérifie que le bon compte coach est indiqué comme conservé, puis exécute :
+   ```bash
+   python -m scripts.reset_athletes --confirm-reset RESET-MI-COACH-ATHLETES
+   ```
+
+Le compte coach conserve son mot de passe, son profil, ses séances et sa connexion Garmin. Les athlètes devront refaire leur onboarding et reconnecter Garmin.
+
 **Option B — depuis le dashboard Supabase** : tu peux aussi inspecter / éditer les données via l'onglet "Table Editor" pour faire des modifs ad-hoc.
 
 ## 7) Configurer les comptes
