@@ -11,8 +11,15 @@
 
     {% if saved %}<div class="card-success card-pad" style="margin-bottom:14px;">Profil enregistré et séances futures du plan recalculées.</div>{% endif %}
     {% if error %}<div class="card card-pad" role="alert" style="border-color:#ef4444;color:#991b1b;margin:14px 0;">{{ error }}</div>{% endif %}
+    {% if pace_change_warning %}
+    <div class="card card-pad" role="alert" style="border-color:#f59e0b;background:#fff7ed;color:#92400e;margin:14px 0;line-height:1.5;">
+      <strong>Des séances futures existent déjà.</strong><br />
+      Modifier tes allures va mettre à jour les cibles d'allure de ces séances. Leur structure, leurs répétitions et tes modifications manuelles seront conservées. Veux-tu continuer ?
+    </div>
+    {% endif %}
 
     <form method="post" action="{{ '/settings/entrainement' if settings_mode else '/onboarding/preview' }}" class="flex flex-col" style="gap:14px;">
+      {% if pace_change_warning %}<input type="hidden" name="confirm_pace_update" value="1" />{% endif %}
       <section class="card card-pad flex flex-col" style="gap:14px;">
         <h2 class="section-title">Objectif</h2>
         <label>
@@ -70,9 +77,9 @@
           {% for pace in pace_rows %}
           <label>
             <span class="field-label">{{ pace.label }}</span>
-            <input type="text" name="pace_{{ pace.key }}" value="{{ pace.value }}" placeholder="{{ 'À saisir' if profile.goal == 'marathon' and not pace.value else '4:30' }}" class="input pace-value" inputmode="numeric" data-key="{{ pace.key }}" />
+            <input type="text" name="pace_{{ pace.key }}" value="{{ pending_form.get('pace_' ~ pace.key, pace.value) if pending_form else pace.value }}" placeholder="{{ 'À saisir' if profile.goal == 'marathon' and not pace.value else '4:30' }}" class="input pace-value" inputmode="numeric" data-key="{{ pace.key }}" />
             <span style="font-size:10px;color:var(--ink-muted);display:flex;align-items:center;gap:5px;margin-top:4px;">
-              <input type="checkbox" name="manual_{{ pace.key }}" value="1" class="manual-pace" data-key="{{ pace.key }}" {% if pace.manual %}checked{% endif %} />Personnalisée
+              <input type="checkbox" name="manual_{{ pace.key }}" value="1" class="manual-pace" data-key="{{ pace.key }}" {% if pending_form and pending_form.get('manual_' ~ pace.key) else pace.manual %}checked{% endif %} />Personnalisée
               {% if pace.value and not pace.manual %}<span>· calculée</span>{% endif %}
             </span>
           </label>
@@ -80,14 +87,14 @@
         </div>
         <p style="font-size:11px;color:#92400e;">Références de profil actuellement utilisées : Aérobie 4:28/km et allure marathon 4:08/km avant adaptation à ton EF. Tu peux les ajuster manuellement si nécessaire.</p>
         <label style="font-size:12px;display:flex;align-items:center;gap:7px;margin-top:4px;">
-          <input type="checkbox" name="reset_auto_paces" value="1" />Réinitialiser les allures personnalisées vers les valeurs calculées disponibles
+          <input type="checkbox" name="reset_auto_paces" value="1" {% if pending_form and pending_form.get('reset_auto_paces') %}checked{% endif %} />Réinitialiser les allures personnalisées vers les valeurs calculées disponibles
         </label>
       </section>
       {% endif %}
 
       <div class="flex" style="gap:8px;">
         <a href="/" class="btn btn-ghost">Annuler</a>
-        <button type="submit" class="btn btn-primary" style="flex:1;">{{ 'Enregistrer mon profil' if settings_mode else 'Voir le plan proposé' }}</button>
+        <button type="submit" class="btn btn-primary" style="flex:1;">{% if pace_change_warning %}Confirmer et appliquer les allures{% else %}{{ 'Enregistrer mon profil' if settings_mode else 'Voir le plan proposé' }}{% endif %}</button>
       </div>
     </form>
   </div>

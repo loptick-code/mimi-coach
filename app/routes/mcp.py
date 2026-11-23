@@ -280,6 +280,20 @@ def _fingerprint_plan(db: DBSession, user_id: int) -> str:
             "id": session.id,
             "updated_at": session.updated_at.isoformat() if session.updated_at else None,
             "validated_at": session.validated_at.isoformat() if session.validated_at else None,
+            "steps": [
+                {
+                    "id": step.id,
+                    "type": step.type.value if hasattr(step.type, "value") else step.type,
+                    "label": step.label,
+                    "duration_type": step.duration_type.value if hasattr(step.duration_type, "value") else step.duration_type,
+                    "duration_value": step.duration_value,
+                    "target_type": step.target_type.value if hasattr(step.target_type, "value") else step.target_type,
+                    "target_low": step.target_low,
+                    "target_high": step.target_high,
+                    "parent_repeat_id": step.parent_repeat_id,
+                }
+                for step in session.steps
+            ],
         }
         for session in sessions
     ]
@@ -621,6 +635,7 @@ def _call_tool(
             select(MCPChangeProposal)
             .where(MCPChangeProposal.proposal_id == proposal_id)
             .where(MCPChangeProposal.user_id == user.id)
+            .where(MCPChangeProposal.operation == "program_import")
         ).first()
         if proposal is None:
             raise ValueError("Proposition inconnue ou non accessible")
@@ -712,7 +727,7 @@ async def mcp_endpoint(request: Request, db: DBSession = Depends(get_session)):
             return _rpc_result(request_id, _call_tool(db, user, auth, name, arguments))
         except PermissionError as exc:
             return _rpc_error(request_id, -32003, str(exc))
-        except (KeyError, ValueError, ProgramImportError) as exc:
+        except (KeyError, TypeError, ValueError, ProgramImportError) as exc:
             return _rpc_error(request_id, -32602, str(exc))
 
     return _rpc_error(request_id, -32601, f"Méthode MCP non supportée : {method}")

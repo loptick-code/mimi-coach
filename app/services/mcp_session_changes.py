@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -138,6 +139,8 @@ def _validate_pace_updates(db: DBSession, session: Session, raw_updates: Any) ->
         low, high = raw.get("target_low"), raw.get("target_high")
         if not isinstance(low, (int, float)) or not isinstance(high, (int, float)) or low < 0 or high < 0:
             raise SessionChangeError(f"pace_updates[{index}] doit contenir target_low et target_high")
+        if low > high:
+            raise SessionChangeError(f"pace_updates[{index}] doit avoir target_low <= target_high")
         updates.append({"step_id": raw["step_id"], "target_low": low, "target_high": high})
     return updates
 
@@ -202,9 +205,13 @@ def build_change_plan(db: DBSession, user: User, operations: Any) -> SessionChan
                 "date": _parse_date(raw["date"]),
                 "name": str(raw["name"])[:100],
                 "description": str(raw.get("description") or "")[:2000] or None,
-                "difficulty": int(raw.get("difficulty", 1)),
+                "difficulty": raw.get("difficulty", 1),
                 "steps": _validate_steps(raw.get("steps", [])),
             }
+            try:
+                operation["difficulty"] = int(operation["difficulty"])
+            except (TypeError, ValueError) as exc:
+                raise SessionChangeError("difficulty doit être un entier compris entre 1 et 4") from exc
             if not 1 <= operation["difficulty"] <= 4:
                 raise SessionChangeError("difficulty doit être compris entre 1 et 4")
             if operation["date"] < date.today():
@@ -242,7 +249,10 @@ def build_change_plan(db: DBSession, user: User, operations: Any) -> SessionChan
             if "description" in raw:
                 operation["description"] = str(raw["description"])[:2000]
             if "difficulty" in raw:
-                operation["difficulty"] = int(raw["difficulty"])
+                try:
+                    operation["difficulty"] = int(raw["difficulty"])
+                except (TypeError, ValueError) as exc:
+                    raise SessionChangeError("difficulty doit être un entier compris entre 1 et 4") from exc
                 if not 1 <= operation["difficulty"] <= 4:
                     raise SessionChangeError("difficulty doit être compris entre 1 et 4")
             if "steps" in raw:
@@ -251,7 +261,7 @@ def build_change_plan(db: DBSession, user: User, operations: Any) -> SessionChan
                 operation["pace_updates"] = _validate_pace_updates(db, session, raw["pace_updates"])
         if operation.get("date", session.date) < date.today():
             raise SessionChangeError("Une séance modifiée ne peut pas être déplacée dans le passé")
-        after = dict(before)
+        after = copy.deepcopy(before)
         for field in ("date", "name", "description", "difficulty"):
             if field in operation:
                 after[field] = operation[field]
@@ -264,6 +274,35 @@ def build_change_plan(db: DBSession, user: User, operations: Any) -> SessionChan
                         step.update({"target_low": pace_update["target_low"], "target_high": pace_update["target_high"]})
         normalized.append(operation)
         preview_operations.append({"action": action, "before": before, "after": after})
+
+    effective_dates: dict[date, list[dict[str, Any]]] = {}
+    for operation in normalized:
+        if operation["action"] == "delete":
+            continue
+        if operation["action"] == "create":
+            target_date = operation["date"]
+        else:
+            target_date = operation.get("date")
+            if target_date is None:
+                session = db.get(Session, operation["session_id"])
+                target_date = session.date if session is not None else None
+        if target_date is not None:
+            effective_dates.setdefault(target_date, []).append(operation)
+    if any(len(items) > 1 for items in effective_dates.values()):
+        raise SessionChangeError("Plusieurs opérations prévoient une séance le même jour")
+    target_dates = set(effective_dates)
+    if target_dates:
+        existing = db.exec(
+            select(Session)
+            .where(Session.athlete_id == user.id)
+            .where(Session.date.in_(target_dates))
+        ).all()
+        touched_ids = {operation.get("session_id") for operation in normalized}
+        for session in existing:
+            if session.id not in touched_ids:
+                raise SessionChangeError(
+                    f"Une autre séance existe déjà le {session.date.isoformat()} (id {session.id})"
+                )
 
     return SessionChangePlan(
         operations=normalized,
