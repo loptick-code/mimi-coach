@@ -6,7 +6,7 @@
     <span class="pill pill-accent">Profil running</span>
     <h1 class="display-l" style="margin-top:10px;">{{ "Mes paramètres" if settings_mode else "Ton plan de course" }}</h1>
     <p style="font-size:13px;color:var(--ink-muted);margin-top:8px;line-height:1.5;">
-      Choisis ton objectif, ta date de course, ton rythme hebdomadaire et une plage EF estimative. Mi Coach placera ensuite le plan à rebours depuis la course.
+      Choisis un objectif automatique ou « Autre » pour utiliser uniquement des séances manuelles ou importées.
     </p>
 
     {% if saved %}<div class="card-success card-pad" style="margin-bottom:14px;">Profil enregistré et séances futures du plan recalculées.</div>{% endif %}
@@ -22,9 +22,9 @@
           </select>
         </label>
         <label>
-          <span class="field-label">Date de course</span>
-          <input type="date" name="race_date" value="{{ profile.race_date }}" class="input" required />
-          <span style="font-size:11px;color:var(--ink-muted);display:block;margin-top:5px;">La semaine de course sera placée exactement autour de cette date, puis les semaines précédentes seront positionnées à rebours.</span>
+          <span class="field-label">Date de course <span style="font-weight:400;">(optionnelle avec Autre)</span></span>
+          <input id="race-date" type="date" name="race_date" value="{{ profile.race_date }}" class="input" {% if profile.goal != 'other' %}required{% endif %} />
+          <span style="font-size:11px;color:var(--ink-muted);display:block;margin-top:5px;">Pour un objectif automatique, le plan est placé à rebours. Avec Autre, cette date ajoute une séance Course dans la semaine correspondante.</span>
         </label>
       </section>
 
@@ -33,35 +33,35 @@
         <div>
           <span class="field-label">Nombre de sorties par semaine</span>
           <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;">
-            {% for count in [3, 4] %}
+            {% for count in [1, 2, 3, 4, 5, 6] %}
             <label style="display:block;cursor:pointer;">
               <input type="radio" name="sessions_per_week" value="{{ count }}" {% if profile.sessions_per_week == count %}checked{% endif %} required />
               <span style="font-weight:700;">{{ count }} séances</span>
             </label>
             {% endfor %}
           </div>
-          <p style="font-size:11px;color:var(--ink-muted);margin-top:7px;">Avec 3 séances, Mi Coach retire la séance n° 3 du plan chaque semaine. Cette séance est l’EF supplémentaire identique à la séance n° 1.</p>
+          <p style="font-size:11px;color:var(--ink-muted);margin-top:7px;">Les objectifs automatiques utilisent 3 ou 4 séances. Avec Autre, le fichier importé peut contenir de 1 à 6 séances par semaine.</p>
         </div>
       </section>
 
-      <section class="card card-pad flex flex-col" style="gap:12px;">
+      <section id="pace-section" class="card card-pad flex flex-col" style="gap:12px;">
         <h2 class="section-title">Ton EF actuelle</h2>
-        <p style="font-size:12px;color:var(--ink-muted);line-height:1.5;">Cette plage est obligatoire pour calculer les allures du plan. Elle représente ton EF actuelle à l’instant T. Tu peux mettre une estimation réaliste, par exemple 5:00–5:30/km, puis la modifier plus tard dans tes paramètres.</p>
+        <p style="font-size:12px;color:var(--ink-muted);line-height:1.5;">Cette plage est obligatoire pour un plan automatique. Avec Autre, tu peux la laisser vide et importer les allures directement dans tes séances. Elle représente ton EF actuelle à l’instant T. Tu peux mettre une estimation réaliste, par exemple 5:00–5:30/km, puis la modifier plus tard dans tes paramètres.</p>
         <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">
           <label>
             <span class="field-label">Borne rapide (min/km)</span>
-            <input id="ef-fast" type="text" name="ef_fast" value="{{ profile.ef_fast }}" placeholder="5:00" class="input" inputmode="numeric" required />
+            <input id="ef-fast" type="text" name="ef_fast" value="{{ profile.ef_fast }}" placeholder="5:00" class="input" inputmode="numeric" {% if profile.goal != 'other' %}required{% endif %} />
           </label>
           <label>
             <span class="field-label">Borne lente (min/km)</span>
-            <input id="ef-slow" type="text" name="ef_slow" value="{{ profile.ef_slow }}" placeholder="5:30" class="input" inputmode="numeric" required />
+            <input id="ef-slow" type="text" name="ef_slow" value="{{ profile.ef_slow }}" placeholder="5:30" class="input" inputmode="numeric" {% if profile.goal != 'other' %}required{% endif %} />
           </label>
         </div>
         <p style="font-size:11px;color:var(--ink-muted);">L’écart est toujours verrouillé à 30 secondes par kilomètre : modifier une borne complète automatiquement l’autre.</p>
       </section>
 
-      {% if settings_mode %}
-      <section class="card card-pad flex flex-col" style="gap:12px;">
+      {% if settings_mode and profile.goal != 'other' %}
+      <section id="ef-section" class="card card-pad flex flex-col" style="gap:12px;">
         <div>
           <h2 class="section-title">Mes allures</h2>
           <p style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Les valeurs automatiques partent d’une allure fixe par type d’effort. Elles sont recalculées depuis ton EF actuelle. La progression vient ensuite de tes retours de séance. Coche « personnalisée » pour conserver une allure choisie manuellement.</p>
@@ -121,5 +121,11 @@
       syncing = false;
     });
   })();
+const goalSelect = document.querySelector('select[name="goal"]');
+    const raceDate = document.getElementById('race-date');
+    const efSection = document.getElementById('ef-section');
+    const syncGoal = () => { const other = goalSelect?.value === 'other'; if (raceDate) raceDate.required = !other; if (fast) fast.required = !other; if (slow) slow.required = !other; if (efSection) efSection.style.opacity = other ? '0.72' : '1'; };
+    goalSelect?.addEventListener('change', syncGoal);
+    syncGoal();
 </script>
 {% endblock %}

@@ -5,10 +5,11 @@ import json
 import re
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session as DBSession, select
 
@@ -37,10 +38,11 @@ from app.services.session_cleanup import delete_sessions_safely
 from app.services.training_plan_library import PlanStep, generate_schedule
 from app.services.workout_builder import estimate_duration_and_distance, pace_min_per_km_to_m_per_s
 from app.services.workout_text_parser import ParsedWorkout, WorkoutTextError, parse_workout_text
+from app.services.program_markdown_parser import ProgramMarkdownError, parse_program_markdown
 from app.templates import templates
 
 router = APIRouter()
-GOAL_LABELS = {"10k": "10 km", "half": "Semi-marathon", "marathon": "Marathon"}
+GOAL_LABELS = {"10k": "10 km", "half": "Semi-marathon", "marathon": "Marathon", "other": "Autre"}
 PACE_KEYS = list(PACE_LABELS)
 
 
@@ -95,32 +97,36 @@ def _pace_rows(targets: dict[str, int], manual: list[str] | set[str]) -> list[di
 def _form_profile(form: Any) -> dict[str, Any]:
     goal = str(form.get("goal") or "").strip()
     if not supported_goal(goal):
-        raise ValueError("Choisis un objectif parmi 10 km, semi-marathon ou marathon.")
+        raise ValueError("Choisis un objectif parmi 10 km, semi-marathon, marathon ou autre.")
 
     race_date_raw = str(form.get("race_date") or "").strip()
-    if not race_date_raw:
+    if not race_date_raw and goal != "other":
         raise ValueError("La date de course est obligatoire.")
     try:
-        race_date = date.fromisoformat(race_date_raw)
+        race_date = date.fromisoformat(race_date_raw) if race_date_raw else None
     except ValueError as exc:
         raise ValueError("La date de course est invalide.") from exc
-    if race_date < date.today():
+    if race_date is not None and race_date < date.today():
         raise ValueError("La date de course doit être aujourd'hui ou dans le futur.")
 
     try:
         sessions_per_week = int(form.get("sessions_per_week") or 0)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Choisis 3 ou 4 séances par semaine.") from exc
-    if sessions_per_week not in (3, 4):
-        raise ValueError("Choisis 3 ou 4 séances par semaine.")
+        raise ValueError("Choisis entre 1 et 6 séances par semaine pour un programme importé." if goal == "other" else "Choisis 3 ou 4 séances par semaine.") from exc
+    allowed_sessions = (1, 2, 3, 4, 5, 6) if goal == "other" else (3, 4)
+    if sessions_per_week not in allowed_sessions:
+        raise ValueError("Choisis entre 1 et 6 séances par semaine pour un programme importé." if goal == "other" else "Choisis 3 ou 4 séances par semaine.")
 
     ef_fast_raw = str(form.get("ef_fast") or "").strip()
     ef_slow_raw = str(form.get("ef_slow") or "").strip()
-    if not ef_fast_raw or not ef_slow_raw:
-        raise ValueError("La plage EF est obligatoire. Tu peux saisir une estimation et la modifier ensuite.")
-    ef_fast = pace_to_seconds(ef_fast_raw)
-    ef_slow = pace_to_seconds(ef_slow_raw)
-    validate_ef_range(ef_fast, ef_slow)
+    if goal == "other" and not ef_fast_raw and not ef_slow_raw:
+        ef_fast = ef_slow = None
+    else:
+        if not ef_fast_raw or not ef_slow_raw:
+            raise ValueError("La plage EF est obligatoire pour un plan automatique.")
+        ef_fast = pace_to_seconds(ef_fast_raw)
+        ef_slow = pace_to_seconds(ef_slow_raw)
+        validate_ef_range(ef_fast, ef_slow)
     return {
         "goal": goal,
         "race_date": race_date,
@@ -131,7 +137,7 @@ def _form_profile(form: Any) -> dict[str, Any]:
 
 
 def _store_profile(db: DBSession, user: User, data: dict[str, Any], form: Any, existing: TrainingProfile | None) -> TrainingProfile:
-    auto_targets = calculate_pace_targets(data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"])
+    auto_targets = calculate_pace_targets(data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"]) if data["goal"] != "other" and data["ef_fast_sec_per_km"] and data["ef_slow_sec_per_km"] else {}
     old_targets = _json_dict(existing.pace_targets_json) if existing else {}
     old_manual = set(_json_list(existing.manual_paces_json)) if existing else set()
     reset_all = str(form.get("reset_auto_paces") or "").lower() in ("1", "true", "on", "yes")
@@ -320,8 +326,14 @@ def _update_future_plan_paces(
     db.commit()
 
 
-def _generate_plan(db: DBSession, user: User, profile: TrainingProfile) -> TrainingPlanState:
-    _delete_generated_future_sessions(db, user, _plan_state(db, user))
+def _generate_plan(db: DBSession, user: User, profile: TrainingProfile) -> TrainingPlanState | None:
+    current_state = _plan_state(db, user)
+    _delete_generated_future_sessions(db, user, current_state)
+    if profile.goal == "other":
+        if current_state is not None:
+            db.delete(current_state)
+            db.commit()
+        return None
     _, schedule = generate_schedule(
         profile.goal,
         profile.race_date,
@@ -402,6 +414,20 @@ async def onboarding_preview(request: Request, user: User = Depends(require_user
     if error:
         context.update({"goal": form.get("goal", context["goal"]), "race_date": form.get("race_date", ""), "sessions_per_week": form.get("sessions_per_week", 4), "ef_fast": form.get("ef_fast", ""), "ef_slow": form.get("ef_slow", "")})
         return _profile_form_response(request, context, error=error)
+    if data["goal"] == "other":
+        profile_data = {
+            **data,
+            "race_date": data["race_date"].isoformat() if data["race_date"] else "",
+            "ef_fast": seconds_to_pace(data["ef_fast_sec_per_km"]),
+            "ef_slow": seconds_to_pace(data["ef_slow_sec_per_km"]),
+            "pace_targets": {},
+            "manual_paces": [],
+        }
+        return templates.TemplateResponse(request, "training_profile_preview.html", {
+            "user": user, "profile": profile_data, "goal_labels": GOAL_LABELS,
+            "pace_rows": [], "plan": None, "scheduled_count": 0,
+            "schedule_start": date.today(), "schedule_end": date.today(),
+        })
     try:
         plan, schedule = generate_schedule(data["goal"], data["race_date"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"], data["sessions_per_week"])
     except (ValueError, KeyError, ImportError) as exc:
@@ -619,6 +645,12 @@ def _text_preview_context(
     )
 
 
+@router.get("/programme/texte/instructions")
+async def download_program_instructions():
+    path = Path(__file__).resolve().parents[2] / "docs" / "MI_COACH_LLM_INSTRUCTIONS.md"
+    return FileResponse(path, media_type="text/markdown", filename="MI_COACH_LLM_INSTRUCTIONS.md")
+
+
 @router.get("/programme/texte")
 async def workout_text_page(
     request: Request,
@@ -653,36 +685,18 @@ async def workout_text_preview(
     if profile is None:
         return RedirectResponse(url="/onboarding", status_code=303)
     form = await request.form()
-    text = str(form.get("program_text") or "")
-    if len(text) > 20000:
-        return templates.TemplateResponse(
-            request,
-            "workout_text.html",
-            {"user": user, "profile": _profile_context(profile), "text": text[:20000], "start_date": str(form.get("start_date") or ""), "error": "Le texte dépasse la limite de 20 000 caractères."},
-            status_code=400,
-        )
     try:
-        start_date = date.fromisoformat(str(form.get("start_date") or ""))
-    except ValueError:
-        return templates.TemplateResponse(
-            request,
-            "workout_text.html",
-            {"user": user, "profile": _profile_context(profile), "text": text, "start_date": "", "error": "Renseigne une date de début valide."},
-            status_code=400,
-        )
-    if start_date.weekday() != 0:
-        return templates.TemplateResponse(
-            request,
-            "workout_text.html",
-            {
-                "user": user,
-                "profile": _profile_context(profile),
-                "text": text,
-                "start_date": start_date.isoformat(),
-                "error": "La date de début doit être un lundi.",
-            },
-            status_code=400,
-        )
+        uploaded = form.get("program_file")
+        if uploaded is None or not hasattr(uploaded, "read"):
+            raise ProgramMarkdownError("Dépose un fichier Markdown produit avec les instructions Mi Coach.")
+        content = (await uploaded.read()).decode("utf-8-sig")
+        parsed_file = parse_program_markdown(content)
+        text = parsed_file.normalized_text
+        start_date = parsed_file.start_date
+    except (UnicodeDecodeError, ProgramMarkdownError) as exc:
+        return templates.TemplateResponse(request, "workout_text.html", {"user": user, "profile": _profile_context(profile), "error": str(exc)}, status_code=400)
+    if len(text) > 20000:
+        return templates.TemplateResponse(request, "workout_text.html", {"user": user, "profile": _profile_context(profile), "error": "Le programme dépasse la limite de 20 000 caractères après conversion."}, status_code=400)
     return _text_preview_context(request, user, profile, text, start_date, db=db)
 
 
@@ -797,5 +811,21 @@ async def confirm_workout_text(
                 repeat_ids[index] = step.id
         session.estimated_duration_min, session.estimated_distance_km = estimate_duration_and_distance(created_steps)
         db.add(session)
+    if profile.goal == "other" and profile.race_date:
+        race_week = ((profile.race_date - start_date).days // 7) + 1
+        has_race = any(
+            workout.week_number == race_week
+            and workout.date == profile.race_date
+            and "course" in workout.name.lower()
+            for workout in parsed.workouts
+        )
+        if not has_race:
+            db.add(Session(
+                athlete_id=user.id,
+                date=profile.race_date,
+                name="Course",
+                description=f"Jour de course, semaine {race_week}.",
+                difficulty=4,
+            ))
     db.commit()
     return RedirectResponse(url="/", status_code=303)
