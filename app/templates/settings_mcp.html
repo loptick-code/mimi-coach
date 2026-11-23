@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Connecter une IA - Mi Coach{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-5 pt-4">
+  <a href="/" aria-label="Retour" class="btn btn-ghost btn-icon" style="height: 36px; width: 36px; margin-bottom: 14px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+  </a>
+
+  <h1 class="display-xl">Connecter<br/><span style="color: var(--accent);">une IA.</span></h1>
+  <p style="font-size: 13px; color: var(--ink-muted); margin-top: 12px;">
+    Connecte un assistant compatible MCP à ton compte Mi Coach. L’autorisation OAuth protège ton compte et les changements passent toujours par un aperçu puis une confirmation.
+  </p>
+
+  {% if request.query_params.get('error') == 'limit' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #b91c1c; font-size: 13px;">
+    Tu as atteint la limite de 10 connexions actives.
+  </div>
+  {% endif %}
+  {% if request.query_params.get('revoked') %}
+  <div class="card-success" style="margin-top: 16px; padding: 12px 14px; font-size: 13px; color: #15803d;">Connexion révoquée.</div>
+  {% endif %}
+
+  {% if new_token %}
+  <div class="card-accent" style="margin-top: 20px; padding: var(--card-pad);">
+    <div class="micro-label" style="color: rgba(14,14,14,.65);">Copie ce token maintenant</div>
+    <p style="font-size: 13px; margin-top: 8px;">Il ne sera plus affiché après cette page.</p>
+    <code style="display: block; margin-top: 12px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,.65); font-size: 12px; overflow-wrap: anywhere; user-select: all;">{{ new_token }}</code>
+    <p style="font-size: 11px; margin-top: 10px; color: rgba(14,14,14,.65);">Dans ton client MCP, utilise l'URL <strong> /mcp </strong> de ton déploiement Mi Coach et ce token comme bearer token.</p>
+  </div>
+  {% endif %}
+
+  <div class="card card-pad" style="margin-top: 20px;">
+    <h2 class="section-title" style="margin-bottom: 10px;">Nouvelle connexion</h2>
+    <p style="font-size: 13px; color: var(--ink-muted); margin-bottom: 16px;">Crée un token de lecture pour les clients qui ne proposent pas encore la connexion OAuth. Pour modifier le programme, utilise la connexion OAuth du client MCP.</p>
+    <form method="post" action="/settings/mcp/tokens" class="flex flex-col" style="gap: 12px;">
+      <label>
+        <span class="field-label">Nom de la connexion</span>
+        <input class="input" name="label" value="Assistant IA" maxlength="80" autocomplete="off" />
+      </label>
+      <button class="btn btn-primary" type="submit">Créer une connexion MCP</button>
+    </form>
+  </div>
+
+  <div style="margin-top: 24px;">
+    <div class="flex items-center justify-between" style="margin-bottom: 10px;">
+      <h2 class="section-title">Connexions actives</h2>
+      <span class="pill pill-stone">{{ tokens|length }}</span>
+    </div>
+    {% if tokens %}
+      <div class="flex flex-col" style="gap: 8px;">
+      {% for token in tokens %}
+        <div class="card" style="padding: 14px 16px;">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div style="font-weight: 700; font-size: 14px;">{{ token.label }}</div>
+              <div style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--ink-muted); margin-top: 4px;">{{ token.token_prefix }}••••••••</div>
+              <div style="font-size: 11px; color: var(--ink-muted); margin-top: 4px;">Créé le {{ token.created_at.strftime('%d/%m/%Y') }}{% if token.last_used_at %} · Utilisé le {{ token.last_used_at.strftime('%d/%m/%Y à %H:%M') }}{% endif %}</div>
+            </div>
+            <form method="post" action="/settings/mcp/tokens/{{ token.id }}/revoke" onsubmit="return confirm('Révoquer cette connexion ?');">
+              <button class="btn btn-danger btn-sm" type="submit">Révoquer</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="card card-pad" style="color: var(--ink-muted); font-size: 13px;">Aucune connexion active.</div>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top: 24px; padding: 14px 16px; background: rgba(14,14,14,.04);">
+    <div class="micro-label">Sécurité</div>
+    <p style="font-size: 12px; color: var(--ink-muted); margin-top: 7px; line-height: 1.5;">Les tokens manuels donnent uniquement accès à ton compte et aux outils de lecture. Les clients OAuth peuvent demander l’écriture, mais Mi Coach demande toujours une confirmation avant d’appliquer un changement. Ne publie jamais un token dans un prompt partagé ou dans un dépôt Git.</p>
+  </div>
+</div>
+{% endblock %}

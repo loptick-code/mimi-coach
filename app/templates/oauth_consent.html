@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Autoriser une IA - Mi Coach{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-5 pt-8">
+  <div class="card card-pad">
+    <div class="pill pill-accent">Autorisation MCP</div>
+    <h1 class="display-l" style="margin-top: 16px;">Autoriser<br/>{{ client.client_name }}</h1>
+    <p style="font-size: 13px; color: var(--ink-muted); margin-top: 12px; line-height: 1.5;">
+      Cet assistant souhaite accéder à ton compte Mi Coach avec les permissions suivantes :
+    </p>
+    <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+      {% for scope in params.scope.split() %}
+      <div class="card" style="padding: 11px 13px; font-size: 13px;">{{ scope_labels.get(scope, scope) }}</div>
+      {% endfor %}
+    </div>
+    <p style="font-size: 12px; color: var(--ink-muted); margin-top: 16px;">Compte connecté : <strong style="color: var(--ink);">{{ user.email }}</strong></p>
+    <form method="post" action="/oauth/authorize" style="display: flex; gap: 8px; margin-top: 20px;">
+      <input type="hidden" name="csrf" value="{{ csrf }}" />
+      {% for key, value in params.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}" />{% endfor %}
+      <button class="btn btn-ghost" type="submit" name="decision" value="deny" style="flex: 1;">Refuser</button>
+      <button class="btn btn-primary" type="submit" name="decision" value="approve" style="flex: 1;">Autoriser</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

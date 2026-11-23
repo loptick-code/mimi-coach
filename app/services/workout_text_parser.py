@@ -260,8 +260,8 @@ def parse_workout_text(
     sessions_per_week: int = 4,
 ) -> ParseResult:
     """Parse les séances par ligne. Le texte ne peut créer aucun objet en base."""
-    if sessions_per_week not in (3, 4):
-        raise WorkoutTextError("Choisis 3 ou 4 séances par semaine dans les paramètres.")
+    if sessions_per_week not in range(1, 7):
+        raise WorkoutTextError("Choisis entre 1 et 6 séances par semaine dans les paramètres.")
     pace_targets = pace_targets or {}
     current_week = 1
     workouts: list[ParsedWorkout] = []
