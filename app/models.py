@@ -136,6 +136,27 @@ class TrainingProfile(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="training_profile")
 
 
+class MCPToken(SQLModel, table=True):
+    """Jeton personnel pour connecter un assistant MCP au compte Mi Coach.
+
+    La valeur en clair n'est jamais stockée. Elle n'est affichée qu'une seule
+    fois lors de sa création, puis seul son hash permet de l'identifier.
+    Cette première version est volontairement limitée à la lecture.
+    """
+
+    __tablename__ = "mcp_token"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    token_hash: str = Field(unique=True, index=True)
+    token_prefix: str = Field(default="mcp_", max_length=16)
+    label: str = Field(default="Assistant IA", max_length=80)
+    scope: str = Field(default="profile:read plan:read activity:read")
+    created_at: _dt.datetime = Field(default_factory=_utc_now)
+    last_used_at: Optional[_dt.datetime] = Field(default=None)
+    revoked_at: Optional[_dt.datetime] = Field(default=None)
+
+
 class TrainingPlanState(SQLModel, table=True):
     """Plan actuellement généré pour un compte.
 

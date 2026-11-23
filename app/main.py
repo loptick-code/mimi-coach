@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.db import init_db
 from app.routes import auth as auth_routes
 from app.routes import garmin as garmin_routes
+from app.routes import mcp as mcp_routes
 from app.routes import sessions as session_routes
 from app.routes import training as training_routes
 from app.seed import seed_users
@@ -83,6 +84,7 @@ def create_app() -> FastAPI:
     app.include_router(session_routes.router)
     app.include_router(training_routes.router)
     app.include_router(garmin_routes.router)
+    app.include_router(mcp_routes.router)
 
     @app.exception_handler(HTTPException)
     async def handle_http_exception(request: Request, exc: HTTPException):
