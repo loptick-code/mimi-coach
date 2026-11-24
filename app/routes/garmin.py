@@ -141,11 +141,28 @@ async def export_session(
             status_code=303,
         )
 
+    device_push_error: str | None = None
+    try:
+        garmin_client.push_workout_to_device(
+            athlete.garmin_token_encrypted,
+            workout_id,
+            on_token_refreshed=_persist_token,
+        )
+    except garmin_client.GarminError as exc:
+        # Le workout est déjà dans Garmin Connect. On conserve donc le succès
+        # de l'upload et on informe l'athlète si l'envoi vers l'appareil échoue.
+        device_push_error = str(exc)
+
     s.garmin_workout_id = workout_id
     s.pushed_at = datetime.now(timezone.utc)
-    s.last_push_error = None
+    s.last_push_error = device_push_error
     db.add(s)
     db.commit()
+    if device_push_error:
+        return RedirectResponse(
+            url=f"/sessions/{session_id}?success=exported&device_push_failed=1",
+            status_code=303,
+        )
     return RedirectResponse(
         url=f"/sessions/{session_id}?success=exported",
         status_code=303,

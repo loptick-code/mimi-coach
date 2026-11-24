@@ -87,9 +87,20 @@ def _profile_context(profile: TrainingProfile | None) -> dict[str, Any]:
     }
 
 
-def _pace_rows(targets: dict[str, int], manual: list[str] | set[str]) -> list[dict[str, Any]]:
+def _pace_rows(
+    targets: dict[str, int],
+    manual: list[str] | set[str],
+    auto_targets: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
+    auto_targets = auto_targets or targets
     return [
-        {"key": key, "label": PACE_LABELS[key], "value": seconds_to_pace(targets.get(key)), "manual": key in manual}
+        {
+            "key": key,
+            "label": PACE_LABELS[key],
+            "value": seconds_to_pace(targets.get(key)),
+            "auto_value": seconds_to_pace(auto_targets.get(key)),
+            "manual": key in manual,
+        }
         for key in PACE_KEYS
     ]
 
@@ -151,7 +162,11 @@ def _store_profile(db: DBSession, user: User, data: dict[str, Any], form: Any, e
         raw_value = str(form.get(f"pace_{key}") or "").strip()
         manual_flag = str(form.get(f"manual_{key}") or "").lower() in ("1", "true", "on", "yes")
         submitted = pace_to_seconds(raw_value) if raw_value else None
-        if not reset_all and manual_flag and submitted is not None:
+        auto_value = auto_targets.get(key)
+        value_differs_from_auto = submitted is not None and (
+            auto_value is None or submitted != auto_value
+        )
+        if not reset_all and submitted is not None and (manual_flag or value_differs_from_auto):
             new_targets[key] = submitted
             manual_paces.add(key)
         elif key in auto_targets:
@@ -398,7 +413,7 @@ def _profile_form_response(
         if profile_data.get("ef_fast_sec_per_km") and profile_data.get("ef_slow_sec_per_km")
         else {}
     )
-    targets = profile_data.get("pace_targets") or auto_targets
+    targets = {**auto_targets, **(profile_data.get("pace_targets") or {})}
     return templates.TemplateResponse(
         request,
         "training_profile.html",
@@ -406,7 +421,11 @@ def _profile_form_response(
             "user": request.state.user,
             "profile": profile_data,
             "goal_labels": GOAL_LABELS,
-            "pace_rows": _pace_rows(targets, profile_data.get("manual_paces", [])),
+            "pace_rows": _pace_rows(
+                targets,
+                profile_data.get("manual_paces", []),
+                auto_targets,
+            ),
             "error": error,
             "settings_mode": settings_mode,
             "saved": saved,
@@ -566,7 +585,7 @@ async def save_training_settings(request: Request, user: User = Depends(require_
             _generate_plan(db, user, profile)
     except (ValueError, KeyError, ImportError) as exc:
         return _profile_form_response(request, _profile_context(existing), error=str(exc), settings_mode=True)
-    return RedirectResponse(url="/settings/entrainement?saved=1", status_code=303)
+    return RedirectResponse(url="/", status_code=303)
 
 def _get_pace_data(profile: TrainingProfile) -> tuple[dict[str, int], tuple[int, int] | None]:
     targets = _json_dict(profile.pace_targets_json)
