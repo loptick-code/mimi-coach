@@ -112,6 +112,34 @@ def push_running_workout(
     return int(workout_id)
 
 
+def push_workout_to_device(
+    token_encrypted: bytes,
+    workout_id: int,
+    on_token_refreshed: Callable[[bytes], None] | None = None,
+) -> None:
+    """Envoie un workout Garmin vers le dernier appareil utilisé.
+
+    Garmin Connect effectue ensuite la synchronisation vers la montre. Cette
+    étape utilise l'endpoint Garmin « Send to device », distinct de l'upload
+    dans la bibliothèque des workouts.
+    """
+    client = resume_client(token_encrypted)
+    push_method = getattr(client, "push_workout_to_device", None)
+    if not callable(push_method):
+        raise GarminError(
+            "La version de garminconnect installée ne permet pas l'envoi direct vers l'appareil."
+        )
+    try:
+        push_method(workout_id)
+    except Exception as exc:
+        raise GarminError(f"Echec de l'envoi vers la montre : {exc}") from exc
+
+    if on_token_refreshed is not None:
+        new_token = client.client.dumps()
+        if new_token and len(new_token) > 512:
+            on_token_refreshed(encrypt(new_token))
+
+
 @dataclass
 class GarminActivitySummary:
     """Resume d'une activite Garmin completee (vue depuis l'app)."""

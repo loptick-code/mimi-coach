@@ -578,6 +578,11 @@ async def unvalidate(
     s.feedback = None
     s.validated_at = None
     s.pace_adjustment_at_validation = None
+    # Annuler la validation doit aussi détacher le réalisé lié, notamment
+    # l'activité Garmin choisie. La séance planifiée reste en place.
+    s.garmin_activity_id = None
+    s.actual_duration_sec = None
+    s.actual_distance_m = None
     db.add(s)
     db.commit()
     return RedirectResponse(url=f"/sessions/{session_id}", status_code=303)

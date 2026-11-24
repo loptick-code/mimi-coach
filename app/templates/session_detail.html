@@ -120,10 +120,17 @@
   <!-- Notifications -->
   {% set qs = request.query_params %}
   {% if qs.get('success') == 'exported' %}
-  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #15803d;">
-    <div style="font-weight: 700; font-size: 14px;">Séance envoyée vers Garmin Connect</div>
-    <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">Synchronise ta montre pour la voir apparaître.</div>
-  </div>
+  {% if qs.get('device_push_failed') %}
+    <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #92400e;">
+      <div style="font-weight: 700; font-size: 14px;">Séance envoyée dans Garmin Connect</div>
+      <div style="font-size: 12px; opacity: 0.85; margin-top: 2px;">L’envoi automatique vers la montre a échoué. Vérifie que ta montre est bien associée à Garmin Connect.</div>
+    </div>
+  {% else %}
+    <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #15803d;">
+      <div style="font-weight: 700; font-size: 14px;">Séance envoyée vers ta montre</div>
+      <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">Garmin Connect la synchronisera automatiquement lors de la prochaine sync.</div>
+    </div>
+  {% endif %}
   {% elif qs.get('success') == 'feedback' %}
   <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #15803d;">
     <div style="font-weight: 700; font-size: 14px;">Séance validée</div>
