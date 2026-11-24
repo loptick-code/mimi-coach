@@ -89,11 +89,6 @@
                placeholder="Endurance fondamentale, Séance VMA…" class="input" />
       </label>
 
-      <label>
-        <span class="field-label">Description (optionnel)</span>
-        <textarea id="desc-input" name="description" rows="3" placeholder="Notes sur la séance…"
-                  class="input" style="resize: vertical;">{{ session.description if session else '' }}</textarea>
-      </label>
     </div>
 
     <!-- Bloc ETAPES -->
@@ -189,19 +184,18 @@
       </div>
 
       <div>
-        <span class="field-label">Cible d'allure / FC</span>
-        <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-          <select name="" class="target-type-select input input-sm">
-            <option value="no_target">Sans cible</option>
-            <option value="pace">Allure /km</option>
-            <option value="heart_rate">FC bpm</option>
+        <span class="field-label">Cible d'allure</span>
+        <div class="grid" style="grid-template-columns: 1.15fr 1fr 1fr; gap: 8px;">
+          <select name="" class="target-key-select input input-sm">
+            {% for option in pace_options %}<option value="{{ option.key }}" data-fast="{{ option.fast }}" data-slow="{{ option.slow }}">{{ option.label }}</option>{% endfor %}
           </select>
+          <input type="hidden" name="" class="target-type-select" value="no_target" />
           <div class="target-low-wrap" style="position: relative;">
-            <input type="text" name="" class="target-low-input input input-sm" placeholder="5:34" />
+            <input type="text" name="" class="target-low-input input input-sm" placeholder="rapide" readonly />
             <span class="target-low-label" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--ink-muted); pointer-events: none;">rapide</span>
           </div>
           <div class="target-high-wrap" style="position: relative;">
-            <input type="text" name="" class="target-high-input input input-sm" placeholder="6:04" />
+            <input type="text" name="" class="target-high-input input input-sm" placeholder="lent" readonly />
             <span class="target-high-label" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--ink-muted); pointer-events: none;">lent</span>
           </div>
         </div>
@@ -243,6 +237,7 @@
         duration_type: {{ s.duration_type.value | tojson }},
         duration_value: {%- if s.duration_type.value == 'time' and s.duration_value -%}{{ (s.duration_value / 60) }}{%- elif s.duration_value -%}{{ s.duration_value }}{%- else -%}''{%- endif -%},
         target_type: {{ s.target_type.value | tojson }},
+        target_key: {{ (s.label or '') | tojson }},
         target_low: {%- if s.target_type.value == 'pace' and s.target_high -%}{{ s.target_high | pace | replace('/km','') | tojson }}{%- elif s.target_low -%}{{ s.target_low | tojson }}{%- else -%}''{%- endif -%},
         target_high: {%- if s.target_type.value == 'pace' and s.target_low -%}{{ s.target_low | pace | replace('/km','') | tojson }}{%- elif s.target_high -%}{{ s.target_high | tojson }}{%- else -%}''{%- endif -%},
         repeat_count: {{ (s.repeat_count or '') | tojson }},
@@ -269,6 +264,7 @@
       setName('.label-input', 'label');
       setName('.duration-type-select', 'duration_type');
       setName('.duration-input', 'duration_value');
+      setName('.target-key-select', 'target_key');
       setName('.target-type-select', 'target_type');
       setName('.target-low-input', 'target_low');
       setName('.target-high-input', 'target_high');
@@ -303,21 +299,50 @@
     else { dot.className = 'type-dot type-' + el.querySelector('.type-select').value; }
   }
 
-  function applyTargetType(el, ttype) {
+  const targetLabels = {
+    {% for option in pace_options %}{{ option.key | tojson }}: {{ option.label | tojson }},{% endfor %}
+  };
+
+  function inferTargetKey(label, targetType) {
+    if (targetType === 'no_target') return 'no_target';
+    const normalized = (label || '').trim().toLowerCase();
+    return Object.entries(targetLabels).find(([, value]) => value.toLowerCase() === normalized)?.[0] || 'no_target';
+  }
+
+  function applyTargetType(el, targetKey) {
     const lowWrap = el.querySelector('.target-low-wrap');
     const highWrap = el.querySelector('.target-high-wrap');
     const low = el.querySelector('.target-low-input');
     const high = el.querySelector('.target-high-input');
     const lowLabel = el.querySelector('.target-low-label');
     const highLabel = el.querySelector('.target-high-label');
-    const showRange = ttype !== 'no_target';
+    const targetType = el.querySelector('.target-type-select');
+    const zone = el.querySelector('.target-key-select');
+    const option = zone?.querySelector(`option[value="${targetKey}"]`);
+    const showRange = targetKey !== 'no_target';
+    if (zone) zone.value = option ? targetKey : 'no_target';
+    if (targetType) targetType.value = showRange ? 'pace' : 'no_target';
+    if (option) {
+      low.value = option.dataset.fast || '';
+      high.value = option.dataset.slow || '';
+    } else if (!showRange) {
+      low.value = '';
+      high.value = '';
+    }
     lowWrap.style.opacity = showRange ? '1' : '0.4';
     highWrap.style.opacity = showRange ? '1' : '0.4';
     low.disabled = !showRange;
     high.disabled = !showRange;
-    if (ttype === 'pace') { low.placeholder = '5:34'; high.placeholder = '6:04'; lowLabel.textContent = 'rapide'; highLabel.textContent = 'lent'; }
-    else if (ttype === 'heart_rate') { low.placeholder = '140'; high.placeholder = '160'; lowLabel.textContent = 'min'; highLabel.textContent = 'max'; }
-    else { lowLabel.textContent = ''; highLabel.textContent = ''; }
+    lowLabel.textContent = showRange ? 'rapide' : '';
+    highLabel.textContent = showRange ? 'lent' : '';
+    const label = el.querySelector('.label-input');
+    if (label && showRange) {
+      label.value = targetLabels[targetKey] || label.value;
+      label.readOnly = true;
+    } else if (label) {
+      label.value = '';
+      label.readOnly = false;
+    }
   }
 
   function applyDurationType(el, dtype) {
@@ -339,7 +364,7 @@
     typeSel.addEventListener('change', () => {
       if (node.dataset.kind === 'step') node.querySelector('.type-dot').className = 'type-dot type-' + typeSel.value;
     });
-    node.querySelector('.target-type-select').addEventListener('change', (e) => applyTargetType(node, e.target.value));
+    node.querySelector('.target-key-select').addEventListener('change', (e) => applyTargetType(node, e.target.value));
     node.querySelector('.duration-type-select').addEventListener('change', (e) => applyDurationType(node, e.target.value));
     node.querySelector('.remove-btn').addEventListener('click', () => { node.remove(); refreshNames(); });
     if (fill) {
@@ -350,12 +375,11 @@
       set('.label-input', normalizedLabel);
       set('.duration-type-select', fill.duration_type);
       set('.duration-input', fill.duration_value);
-      set('.target-type-select', fill.target_type);
-      set('.target-low-input', fill.target_low);
-      set('.target-high-input', fill.target_high);
       set('.repeat-count-input', fill.repeat_count);
       set('.parent-select', fill.parent_idx);
-      applyTargetType(node, fill.target_type || 'no_target');
+      const inferredKey = Object.entries(targetLabels).find(([, value]) => value.toLowerCase() === (fill.target_key || '').toLowerCase())?.[0]
+        || inferTargetKey(fill.label, fill.target_type);
+      applyTargetType(node, inferredKey);
       applyDurationType(node, fill.duration_type || 'time');
       if (kind === 'step' && fill.type) node.querySelector('.type-dot').className = 'type-dot type-' + fill.type;
     } else {
