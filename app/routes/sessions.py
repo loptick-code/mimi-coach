@@ -33,7 +33,7 @@ from app.services.workout_builder import (
     pace_str_to_min_per_km,
     pace_min_per_km_to_m_per_s,
 )
-from app.services.training_paces import calculate_pace_targets, scale_ef_range
+from app.services.training_paces import PACE_LABELS, calculate_pace_targets, scale_ef_range, seconds_to_pace
 from app.templates import templates
 
 router = APIRouter()
@@ -41,6 +41,47 @@ router = APIRouter()
 _PLAN_PREFIX_RE = re.compile(r"^(?:Semaine\s+(?P<week_long>\d+)|S(?P<week_short>\d+))\s*·\s*(?P<rest>.*)$", re.IGNORECASE)
 _SESSION_NUMBER_RE = re.compile(r"^Séance\s+(?P<number>[1-6])\b", re.IGNORECASE)
 _DAY_TO_SESSION = {0: 1, 1: 2, 2: 3, 6: 4}
+_TARGET_LABELS = {"ef": "EF", **PACE_LABELS}
+
+
+def _pace_options(profile: TrainingProfile | None) -> list[dict[str, str]]:
+    """Construit les cibles proposées dans le formulaire depuis l'EF du profil."""
+    targets: dict[str, int] = {}
+    if profile is not None and profile.ef_fast_sec_per_km and profile.ef_slow_sec_per_km:
+        targets = calculate_pace_targets(
+            profile.goal,
+            profile.ef_fast_sec_per_km,
+            profile.ef_slow_sec_per_km,
+        )
+
+    options = [{"key": "no_target", "label": "Sans cible", "fast": "", "slow": ""}]
+    if profile is not None and profile.ef_fast_sec_per_km and profile.ef_slow_sec_per_km:
+        options.append({
+            "key": "ef",
+            "label": "EF",
+            "fast": seconds_to_pace(profile.ef_fast_sec_per_km),
+            "slow": seconds_to_pace(profile.ef_slow_sec_per_km),
+        })
+    for key, label in PACE_LABELS.items():
+        value = targets.get(key)
+        options.append({
+            "key": key,
+            "label": label,
+            "fast": seconds_to_pace(value),
+            "slow": seconds_to_pace(value),
+        })
+    return options
+
+
+def _target_key_from_label(label: str | None) -> str:
+    normalized = unicodedata.normalize("NFKD", label or "").encode("ascii", "ignore").decode("ascii").lower()
+    if normalized == "ef":
+        return "ef"
+    for key, target_label in PACE_LABELS.items():
+        expected = unicodedata.normalize("NFKD", target_label).encode("ascii", "ignore").decode("ascii").lower()
+        if normalized == expected:
+            return key
+    return "no_target"
 
 
 def _normalize_manual_step(raw_type: object, raw_label: object) -> tuple[StepType, str | None]:
@@ -608,20 +649,16 @@ async def admin_home(
 
     session_meta = _session_display_meta(sessions_list)
 
-    # Regroupe par semaine du programme quand elle est connue. Les dates
-    # restent techniques, mais ne doivent pas faire passer la séance 1 d'une
-    # semaine avant les séances 2, 3 et 4 de la semaine précédente.
+    # Regroupe par semaine calendaire. Une séance créée manuellement doit
+    # rejoindre la semaine du programme correspondant à sa date, même si son
+    # nom ne contient pas de numéro de semaine.
     weeks: list[dict] = []
-    seen_weeks: dict[tuple[str, object], dict] = {}
+    seen_weeks: dict[date, dict] = {}
     for s in sessions_list:
         meta = session_meta[s.id]
-        plan_week = meta["plan_week"]
-        if plan_week is not None:
-            key = ("plan", plan_week)
-        else:
-            monday, _ = _week_bounds(s.date)
-            key = ("calendar", monday)
         monday, sunday = _week_bounds(s.date)
+        plan_week = meta["plan_week"]
+        key = monday
         if key not in seen_weeks:
             group = {
                 "plan_week": plan_week,
@@ -635,6 +672,8 @@ async def admin_home(
             weeks.append(group)
         group = seen_weeks[key]
         group["sessions"].append(s)
+        if group["plan_week"] is None and plan_week is not None:
+            group["plan_week"] = plan_week
         group["monday"] = min(group["monday"], monday)
         group["sunday"] = max(group["sunday"], sunday)
         group["is_current"] = group["is_current"] or monday <= today <= sunday
@@ -648,7 +687,7 @@ async def admin_home(
                 session.date,
             )
         )
-    weeks.sort(key=lambda group: (group["plan_week"] is None, group["plan_week"] or group["monday"]))
+    weeks.sort(key=lambda group: group["monday"])
 
     # Calcule totaux par semaine
     for w in weeks:
@@ -676,6 +715,7 @@ async def admin_new_session(
     db: DBSession = Depends(get_session),
 ):
     athlete = user
+    profile = db.exec(select(TrainingProfile).where(TrainingProfile.user_id == user.id)).first()
     return templates.TemplateResponse(
         request,
         "session_form.html",
@@ -684,6 +724,7 @@ async def admin_new_session(
             "athlete": athlete,
             "session": None,
             "today": date.today().isoformat(),
+            "pace_options": _pace_options(profile),
         },
     )
 
@@ -699,10 +740,11 @@ async def admin_edit_session(
     if s is None or s.athlete_id != user.id:
         raise HTTPException(404)
     athlete = db.get(User, s.athlete_id)
+    profile = db.exec(select(TrainingProfile).where(TrainingProfile.user_id == user.id)).first()
     return templates.TemplateResponse(
         request,
         "session_form.html",
-        {"user": user, "athlete": athlete, "session": s},
+        {"user": user, "athlete": athlete, "session": s, "pace_options": _pace_options(profile)},
     )
 
 
@@ -727,6 +769,8 @@ async def admin_create_session(
     form = await request.form()
     raw_session_id = form.get("session_id")
     athlete = user
+    profile = db.exec(select(TrainingProfile).where(TrainingProfile.user_id == user.id)).first()
+    pace_option_map = {option["key"]: option for option in _pace_options(profile)}
 
     if raw_session_id:
         try:
@@ -751,7 +795,8 @@ async def admin_create_session(
     except ValueError:
         raise HTTPException(400, "Date invalide (format attendu : AAAA-MM-JJ)")
     s.name = str(form.get("name") or "Seance").strip()[:100]
-    s.description = (str(form.get("description") or "")).strip() or None
+    # Les étapes structurées remplacent la description libre.
+    s.description = None
     try:
         s.difficulty = max(1, min(4, int(form.get("difficulty") or 1)))
     except (TypeError, ValueError):
@@ -793,20 +838,26 @@ async def admin_create_session(
             if step.duration_type == DurationType.time and step.duration_value:
                 step.duration_value = step.duration_value * 60
 
-            target_type = _safe_enum(
+            target_key = str(raw.get("target_key") or "no_target")
+            target_type = TargetType.pace if target_key in _TARGET_LABELS else _safe_enum(
                 TargetType, raw.get("target_type"), TargetType.no_target
             )
             step.target_type = target_type
+            if target_key in _TARGET_LABELS:
+                step.label = _TARGET_LABELS[target_key]
             if target_type == TargetType.pace:
+                selected_option = pace_option_map.get(target_key)
+                target_low_raw = selected_option["fast"] if selected_option else raw.get("target_low")
+                target_high_raw = selected_option["slow"] if selected_option else raw.get("target_high")
                 try:
                     low = pace_min_per_km_to_m_per_s(
-                        pace_str_to_min_per_km(str(raw.get("target_low") or ""))
+                        pace_str_to_min_per_km(str(target_low_raw or ""))
                     )
                 except (ValueError, ZeroDivisionError):
                     low = None
                 try:
                     high = pace_min_per_km_to_m_per_s(
-                        pace_str_to_min_per_km(str(raw.get("target_high") or ""))
+                        pace_str_to_min_per_km(str(target_high_raw or ""))
                     )
                 except (ValueError, ZeroDivisionError):
                     high = None

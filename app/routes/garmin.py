@@ -155,7 +155,10 @@ async def export_session(
 
     s.garmin_workout_id = workout_id
     s.pushed_at = datetime.now(timezone.utc)
-    s.last_push_error = device_push_error
+    # L'upload Garmin Connect est réussi. Une éventuelle erreur d'envoi vers
+    # l'appareil ne doit pas transformer la séance en erreur générale dans le
+    # programme, sinon elle paraît échouée alors qu'elle est bien exportée.
+    s.last_push_error = None
     db.add(s)
     db.commit()
     if device_push_error:
