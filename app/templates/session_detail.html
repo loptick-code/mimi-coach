@@ -1,1 +1,493 @@
-__file__:/tmp/mimi-coach/app/templates/session_detail.html
+{% extends "base.html" %}
+{% from "_macros.html" import session_icon, feedback_pill, difficulty_bolts, adjustment_pill, session_timeline_dark %}
+{% block title %}{{ session_meta.title }}{% endblock %}
+
+{% macro render_step(s, adj_pct=0) %}
+  {% set _adj = adj_pct or 0 %}
+  {% set type_label_map = {
+    'warmup': 'Échauffement',
+    'interval': s.label or 'Intervalle',
+    'recovery': 'Récupération',
+    'cooldown': 'Retour calme',
+    'other': s.label or 'Course',
+  } %}
+  {% set adj_factor = 1 + (_adj / 100) %}
+  <div style="background: var(--paper); border: 1px solid var(--line); border-left: 5px solid var(--zone-{{ s.type.value }}); border-radius: 12px; padding: 10px 14px;">
+    <div class="micro-label">
+      {% if s.type.value == 'interval' or s.type.value == 'other' %}
+        {% if s.label %}{{ s.label }}{% else %}{{ {'interval':'Intervalle','other':'Course'}[s.type.value] }}{% endif %}
+      {% else %}
+        {{ type_label_map[s.type.value] }}{% if s.label %} · {{ s.label }}{% endif %}
+      {% endif %}
+    </div>
+    <div class="flex items-baseline" style="margin-top: 4px; gap: 8px; flex-wrap: wrap;">
+      <span class="font-display" style="font-size: 17px; font-weight: 800; letter-spacing: -0.025em;">
+        {%- if s.duration_type.value == 'time' and s.duration_value -%}
+          {%- if s.duration_value < 60 -%}{{ s.duration_value | int }} sec
+          {%- elif s.duration_value % 60 == 0 -%}{{ (s.duration_value / 60) | int }} min
+          {%- else -%}{{ (s.duration_value // 60) | int }}'{{ '%02d' | format(s.duration_value | int % 60) }}
+          {%- endif -%}
+        {%- elif s.duration_type.value == 'distance' and s.duration_value -%}
+          {{ (s.duration_value / 1000) | round(2) }} km
+        {%- else -%}
+          Lap (manuel)
+        {%- endif -%}
+      </span>
+      {% if s.target_type.value == 'pace' and s.target_low and s.target_high %}
+        <span style="font-size: 11px; color: var(--ink-muted);">à</span>
+        <span style="font-size: 13px; font-weight: 700; color: var(--accent-deep);">
+          {{ (s.target_high / adj_factor) | pace }}{% if (s.target_high | pace) != (s.target_low | pace) %} – {{ (s.target_low / adj_factor) | pace }}{% endif %}
+        </span>
+      {% elif s.target_type.value == 'heart_rate' and s.target_low and s.target_high %}
+        <span style="font-size: 11px; color: var(--ink-muted);">à</span>
+        <span style="font-size: 13px; font-weight: 700; color: var(--accent-deep);">{{ s.target_low|int }} – {{ s.target_high|int }} bpm</span>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
+
+{% block content %}
+
+<!-- HERO sombre -->
+<div style="background: var(--ink); color: var(--cream); padding: 16px 18px 26px; position: relative; overflow: hidden;">
+  <a href="/" aria-label="Retour"
+     class="inline-flex items-center justify-center"
+     style="background: rgba(245,241,234,0.08); border: 1px solid rgba(245,241,234,0.12); color: var(--cream);
+            width: 36px; height: 36px; border-radius: 999px; margin-bottom: 14px; text-decoration: none;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 19l-7-7 7-7"/></svg>
+  </a>
+
+  <div class="flex items-center" style="gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+    {% set _name = (session.name or '') | lower %}
+    {% set _flags = namespace(race=('course' in _name or 'compet' in _name or 'marathon' in _name or 'semi-marathon' in _name or '10 km' in _name), interval=false) %}
+    {% for step in session.steps or [] %}
+      {% set _step_name = (step.label or '') | lower %}
+      {% if 'course' in _step_name or 'marathon' in _step_name %}{% set _flags.race = true %}{% endif %}
+      {% if step.type.value == 'interval' %}{% set _flags.interval = true %}{% endif %}
+    {% endfor %}
+    {% set _type = 'EF' %}
+    {% if _flags.race %}{% set _type = 'Course' %}
+    {% elif 'sortie longue' in _name or (session.estimated_duration_min or 0) >= 90 or (session.estimated_distance_km or 0) >= 15 %}{% set _type = 'SL' %}
+    {% elif 'seuil' in _name %}{% set _type = 'Seuil' %}
+    {% elif 'tempo' in _name %}{% set _type = 'Tempo' %}
+    {% elif 'vma' in _name or 'fraction' in _name %}{% set _type = 'VMA' %}
+    {% elif 'force' in _name %}{% set _type = 'Force' %}
+    {% elif _flags.interval %}{% set _type = 'Fractionné' %}
+    {% endif %}
+    <span class="pill pill-accent">{{ _type }}</span>
+    <span style="font-size: 11px; color: rgba(245,241,234,0.6); font-weight: 600;">{{ session.date.strftime("%d/%m/%Y") }}</span>
+    {% if session.feedback %}
+      <span class="pill pill-green">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+        Validée
+      </span>
+    {% endif %}
+  </div>
+
+  <div class="micro-label" style="color: rgba(245,241,234,0.6); margin-bottom: 8px;">{{ session_meta.label }}</div>
+  <h1 class="display-xxl" style="font-size: clamp(38px, 8vw, 54px); line-height: 0.9;">{{ session_meta.title }}</h1>
+
+  <!-- Stats hero -->
+  <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 22px;">
+    <div>
+      <div class="micro-label" style="margin-bottom: 4px;">Durée</div>
+      <div class="stat-value stat-value-lg" style="color: var(--cream);">
+        {{ session.estimated_duration_min or 0 }}<span style="font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-left: 2px;">min</span>
+      </div>
+    </div>
+    <div>
+      <div class="micro-label" style="margin-bottom: 4px;">Distance</div>
+      <div class="stat-value stat-value-lg" style="color: var(--cream);">
+        {{ '%.1f'|format(session.estimated_distance_km or 0) }}<span style="font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-left: 2px;">km</span>
+      </div>
+    </div>
+    <div>
+      <div class="micro-label" style="margin-bottom: 4px;">Difficulté</div>
+      <div style="margin-top: 6px;">{{ difficulty_bolts(session.difficulty, size='lg') }}</div>
+    </div>
+  </div>
+
+  <!-- Timeline complete -->
+  {% if session.steps %}
+    <div style="margin-top: 22px;">
+      <div class="micro-label" style="margin-bottom: 8px;">Déroulé</div>
+      {{ session_timeline_dark(session, height=10) }}
+    </div>
+  {% endif %}
+</div>
+
+<div class="px-4 sm:px-5">
+  <!-- Notifications -->
+  {% set qs = request.query_params %}
+  {% if qs.get('success') == 'exported' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #15803d;">
+    <div style="font-weight: 700; font-size: 14px;">Séance envoyée vers Garmin Connect</div>
+    <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">Synchronise ta montre pour la voir apparaître.</div>
+  </div>
+  {% elif qs.get('success') == 'feedback' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #15803d;">
+    <div style="font-weight: 700; font-size: 14px;">Séance validée</div>
+    <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">Ressenti noté, allures futures ajustées.</div>
+  </div>
+  {% elif qs.get('success') == 'actuals_imported' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #15803d;">
+    <div style="font-weight: 700; font-size: 14px;">Activité Garmin assignée</div>
+    <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">Tu peux maintenant donner ton ressenti.</div>
+  </div>
+  {% elif qs.get('success') == 'manual_actuals' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #15803d;">
+    <div style="font-weight: 700; font-size: 14px;">Réalisé enregistré</div>
+  </div>
+  {% elif qs.get('error') == 'invalid_actuals' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #b91c1c; font-size: 13px;">
+    Valeurs invalides : durée et distance doivent être supérieures à 0.
+  </div>
+  {% elif qs.get('error') == 'no_activity' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #92400e; font-size: 13px;">
+    <div style="font-weight: 700;">Aucune course trouvée sur Garmin</div>
+    <div style="font-size: 12px; opacity: 0.85; margin-top: 2px;">Vérifie la sync de ta montre, ou saisis le réalisé manuellement.</div>
+  </div>
+  {% elif qs.get('error') == 'garmin_error' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #b91c1c; font-size: 13px;">
+    Erreur lors de l'appel à Garmin. Reconnecte ton compte si l'erreur persiste.
+  </div>
+  {% elif qs.get('error') == 'garmin_not_connected' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #92400e; font-size: 13px;">
+    Compte Garmin non connecté. <a href="/settings/garmin" class="underline" style="color: inherit;">Configure-le ici</a>.
+  </div>
+  {% elif qs.get('error') == 'push_failed' %}
+  <div style="margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #b91c1c; font-size: 13px;">
+    Échec de l'export.
+    {% if session.last_push_error %}<div style="font-size: 11px; margin-top: 4px; opacity: 0.85;">{{ session.last_push_error }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Card REALISE (si fait) - fond accent lavender -->
+  {% if session.actual_duration_sec and session.actual_distance_m %}
+    {% set act_min = (session.actual_duration_sec / 60) | round(0, 'floor') | int %}
+    {% set act_km = session.actual_distance_m / 1000 %}
+    {% set pace_total_sec = (session.actual_duration_sec / act_km) | round(0) | int if act_km > 0 else 0 %}
+    {% set pace_min = (pace_total_sec // 60) | int %}
+    {% set pace_sec = (pace_total_sec % 60) | int %}
+    <div class="card-accent" style="padding: var(--card-pad); margin-top: 16px;">
+      <div class="flex items-center" style="gap: 8px; margin-bottom: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+        {% if session.garmin_activity_id %}Réalisé sur Garmin{% else %}Réalisé (saisi){% endif %}
+      </div>
+      <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
+        <div>
+          <div class="micro-label" style="color: rgba(14,14,14,0.6);">Durée</div>
+          <div class="stat-value stat-value-lg" style="margin-top: 4px;">
+            {% if act_min >= 60 %}{{ (act_min // 60) }}h{{ '%02d'|format(act_min % 60) }}{% else %}{{ act_min }}<span style="font-size: 13px; font-weight: 600; opacity: 0.7;">min</span>{% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="micro-label" style="color: rgba(14,14,14,0.6);">Distance</div>
+          <div class="stat-value stat-value-lg" style="margin-top: 4px;">{{ '%.2f'|format(act_km) }}<span style="font-size: 13px; font-weight: 600; opacity: 0.7;">km</span></div>
+        </div>
+        <div>
+          <div class="micro-label" style="color: rgba(14,14,14,0.6);">Allure</div>
+          <div class="stat-value stat-value-lg" style="margin-top: 4px;">{{ pace_min }}:{{ '%02d'|format(pace_sec) }}<span style="font-size: 13px; font-weight: 600; opacity: 0.7;">/km</span></div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Notes de séance -->
+  {# Les descriptions automatiques « Plan ... » reprennent le texte source,
+     qui peut afficher les allures d'un autre profil. Les étapes structurées
+     ci-dessous sont la source de vérité pour l'athlète. #}
+  {% if session.description and not session.description.startswith('Plan ') %}
+    <p style="margin-top: 18px; font-size: 14px; line-height: 1.6; color: var(--ink-muted); font-style: italic; white-space: pre-line;">
+      {{ session.description }}
+    </p>
+  {% endif %}
+
+  <!-- INSTRUCTIONS -->
+  <div style="margin-top: 22px;">
+    <div class="flex items-center justify-between" style="margin-bottom: 12px;">
+      <h3 class="section-title">Instructions</h3>
+      {% if applied_adjustment_pct %}{{ adjustment_pill(applied_adjustment_pct) }}{% endif %}
+    </div>
+    {% set top_level = session.steps | selectattr('parent_repeat_id', 'none') | list %}
+    <div class="flex flex-col" style="gap: 8px;">
+      {% for s in top_level %}
+        {% if s.kind == 'repeat' %}
+          <div style="background: rgba(14,14,14,0.04); border: 1.5px solid var(--ink); border-radius: 14px; padding: 10px 12px 12px;">
+            <div class="flex items-center" style="gap: 6px; margin-bottom: 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6M20 20v-6h-6M4 10a8 8 0 0114-3.5L20 10M20 14a8 8 0 01-14 3.5L4 14"/></svg>
+              Répéter × {{ s.repeat_count }}
+            </div>
+            <div class="flex flex-col" style="gap: 6px;">
+              {% for child in session.steps if child.parent_repeat_id == s.id %}
+                {{ render_step(child, applied_adjustment_pct) }}
+              {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          {{ render_step(s, applied_adjustment_pct) }}
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- VALIDATION : 3 etats -->
+  <div id="validation" style="margin-top: 22px; scroll-margin-top: 16px;">
+    <h3 class="section-title" style="margin-bottom: 12px;">Comment as-tu trouvé ?</h3>
+
+    {% if session.feedback %}
+      <!-- Etat 3 : validee -->
+      <div class="card card-pad">
+        <div class="flex items-center justify-between" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            {{ feedback_pill(session.feedback) }}
+            {% if session.validated_at %}
+              <div style="font-size: 11px; color: var(--ink-muted); margin-top: 6px;">Validée le {{ session.validated_at.strftime("%d/%m/%Y") }}</div>
+            {% endif %}
+          </div>
+          <div class="flex items-center" style="gap: 8px; flex-wrap: wrap;">
+            {% if athlete.garmin_token_encrypted %}
+              <a href="/sessions/{{ session.id }}/pick-garmin" class="btn btn-ghost btn-sm" title="Choisir une autre activite Garmin">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6M20 20v-6h-6M4 10a8 8 0 0114-3.5L20 10M20 14a8 8 0 01-14 3.5L4 14"/></svg>
+                Changer
+              </a>
+            {% endif %}
+            <form method="post" action="/sessions/{{ session.id }}/unvalidate"
+                  onsubmit="return confirm('Annuler la validation ?');">
+              <button class="btn btn-ghost btn-sm">Annuler</button>
+            </form>
+          </div>
+        </div>
+
+        <details style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);">
+          <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-muted);">
+            Modifier le réalisé
+          </summary>
+          <form method="post" action="/sessions/{{ session.id }}/manual-actuals" style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end;">
+            <div>
+              <span class="field-label">Durée (min)</span>
+              <input type="number" name="duration_min" step="0.1" min="0.1" required
+                     value="{% if session.actual_duration_sec %}{{ '%.1f'|format(session.actual_duration_sec / 60) }}{% endif %}"
+                     class="input input-sm" />
+            </div>
+            <div>
+              <span class="field-label">Distance (km)</span>
+              <input type="number" name="distance_km" step="0.01" min="0.01" required
+                     value="{% if session.actual_distance_m %}{{ '%.2f'|format(session.actual_distance_m / 1000) }}{% endif %}"
+                     class="input input-sm" />
+            </div>
+            <button type="submit" class="btn btn-ghost btn-sm">OK</button>
+          </form>
+        </details>
+      </div>
+
+    {% elif session.actual_duration_sec and session.actual_distance_m %}
+      <!-- Etat 2 : actuals OK, demande feedback -->
+      <p style="font-size: 13px; color: var(--ink-muted); margin-bottom: 12px;">Réalisé enregistré. Donne ton ressenti pour ajuster les allures futures.</p>
+      <form method="post" action="/sessions/{{ session.id }}/feedback" class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 8px;">
+        <button type="submit" name="feedback" value="too_easy"
+                class="font-display feedback-btn"
+                style="background: var(--paper); border: 1.5px solid var(--line); border-radius: 16px; padding: 16px 6px; cursor: pointer; text-align: center;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em;">Trop facile</div>
+          <div style="font-size: 11px; color: var(--ink-muted); margin-top: 4px;">−2% allures</div>
+        </button>
+        <button type="submit" name="feedback" value="perfect"
+                class="font-display feedback-btn"
+                style="background: var(--paper); border: 1.5px solid var(--line); border-radius: 16px; padding: 16px 6px; cursor: pointer; text-align: center;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em;">Parfait</div>
+          <div style="font-size: 11px; color: var(--ink-muted); margin-top: 4px;">aucun changement</div>
+        </button>
+        <button type="submit" name="feedback" value="too_hard"
+                class="font-display feedback-btn"
+                style="background: var(--paper); border: 1.5px solid var(--line); border-radius: 16px; padding: 16px 6px; cursor: pointer; text-align: center;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em;">Trop dur</div>
+          <div style="font-size: 11px; color: var(--ink-muted); margin-top: 4px;">+2% allures</div>
+        </button>
+      </form>
+      <details style="margin-top: 14px;">
+        <summary style="cursor: pointer; font-size: 11px; color: var(--ink-muted);">Corriger le réalisé</summary>
+        <form method="post" action="/sessions/{{ session.id }}/manual-actuals" style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end;">
+          <div>
+            <span class="field-label">Durée (min)</span>
+            <input type="number" name="duration_min" step="0.1" min="0.1" required value="{{ '%.1f'|format(session.actual_duration_sec / 60) }}" class="input input-sm" />
+          </div>
+          <div>
+            <span class="field-label">Distance (km)</span>
+            <input type="number" name="distance_km" step="0.01" min="0.01" required value="{{ '%.2f'|format(session.actual_distance_m / 1000) }}" class="input input-sm" />
+          </div>
+          <button type="submit" class="btn btn-ghost btn-sm">OK</button>
+        </form>
+      </details>
+
+    {% else %}
+      <!-- Etat 1 : rien fait encore -->
+      <div class="card card-pad">
+        <p style="font-size: 13px; color: var(--ink-muted); line-height: 1.55;">
+          Quand t'as fini ta séance, clique sur <span style="font-weight: 700; color: var(--ink);">Valider la séance</span> en bas de l'écran.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<style>
+  .feedback-btn { transition: all 120ms; }
+  .feedback-btn:hover { border-color: var(--ink) !important; background: var(--cream) !important; }
+</style>
+
+<!-- CTA bottom sticky -->
+<div class="fixed bottom-0 left-0 right-0 z-20"
+     style="background: rgba(245,241,234,0.92); backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+            padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom));">
+  <div class="max-w-3xl mx-auto flex items-center" style="gap: 8px;">
+    <form method="post" action="/sessions/{{ session.id }}/export" style="flex: 1;" data-export-form>
+      <button class="btn btn-ghost" style="width: 100%;" data-export-btn>
+        <span class="inline-flex items-center" style="gap: 8px;" data-export-idle>
+          {% if not session.pushed_at %}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12V19a2 2 0 002 2h10a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v14"/></svg>
+            Exporter
+          {% else %}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6M20 20v-6h-6M4 10a8 8 0 0114-3.5L20 10M20 14a8 8 0 01-14 3.5L4 14"/></svg>
+            Re-exporter
+          {% endif %}
+        </span>
+        <span class="hidden inline-flex items-center" style="gap: 8px;" data-export-loading>
+          <svg width="15" height="15" class="animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="40 60" stroke-linecap="round"/>
+          </svg>
+          Envoi…
+        </span>
+      </button>
+    </form>
+    {% if session.feedback %}
+      <a href="#validation" class="btn btn-primary" style="flex: 1;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+        Voir validation
+      </a>
+    {% elif session.actual_duration_sec and session.actual_distance_m %}
+      <a href="#validation" class="btn btn-primary" style="flex: 1;">Mon ressenti</a>
+    {% else %}
+      <button type="button" onclick="document.getElementById('validate-modal').showModal()" class="btn btn-primary" style="flex: 1;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+        Valider la séance
+      </button>
+    {% endif %}
+  </div>
+  {% if session.pushed_at %}
+    <p class="max-w-3xl mx-auto" style="font-size: 10px; color: var(--ink-muted); margin-top: 6px; text-align: center;">
+      Dernier export : {{ session.pushed_at.strftime("%d/%m/%Y %H:%M") }}
+    </p>
+  {% endif %}
+</div>
+
+<!-- MODAL Validation (etat 1 uniquement) -->
+{% if not session.feedback and not (session.actual_duration_sec and session.actual_distance_m) %}
+<dialog id="validate-modal" style="border: none; border-radius: 18px; padding: 0; max-width: 420px; width: 100%; background: var(--paper);">
+  <style>
+    dialog#validate-modal::backdrop { background: rgba(14,14,14,0.4); backdrop-filter: blur(4px); }
+    dialog#validate-modal[open] { animation: modalIn 180ms ease-out; }
+  </style>
+  <div style="padding: 20px;">
+    <!-- Step 1 : choix source -->
+    <div data-step="1">
+      <div class="flex items-center justify-between" style="margin-bottom: 16px;">
+        <h3 class="display-m">Comment enregistrer ?</h3>
+        <button type="button" onclick="document.getElementById('validate-modal').close()"
+                class="btn btn-ghost btn-icon" aria-label="Fermer" style="height: 32px; width: 32px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+        </button>
+      </div>
+      <div class="flex flex-col" style="gap: 8px;">
+        {% if athlete.garmin_token_encrypted %}
+          <a href="/sessions/{{ session.id }}/pick-garmin" class="modal-choice"
+             style="display: block; background: var(--paper); border: 1.5px solid var(--line); border-radius: 14px; padding: 16px; text-decoration: none; color: var(--ink); transition: all 120ms;">
+            <div class="flex items-center" style="gap: 12px;">
+              <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink);"><circle cx="12" cy="12" r="6"/><path d="M12 9v3l2 2M9 2h6M9 22h6"/></svg>
+              </div>
+              <div style="flex: 1;">
+                <div class="font-display" style="font-size: 14px; font-weight: 700; letter-spacing: -0.02em;">Importer depuis Garmin</div>
+                <div style="font-size: 11px; color: var(--ink-muted); margin-top: 2px;">5 dernières courses du compte</div>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink-muted);"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        {% else %}
+          <a href="/settings/garmin"
+             style="display: block; background: rgba(245,158,11,0.06); border: 1.5px solid rgba(245,158,11,0.3); border-radius: 14px; padding: 16px; text-decoration: none; color: var(--ink);">
+            <div class="font-display" style="font-size: 14px; font-weight: 700; color: #92400e;">Connecte Garmin d'abord</div>
+            <div style="font-size: 11px; color: #92400e; opacity: 0.8; margin-top: 2px;">Pour activer l'import auto</div>
+          </a>
+        {% endif %}
+        <button type="button" class="modal-choice"
+                onclick="this.closest('dialog').querySelector('[data-step=\'1\']').classList.add('hidden'); this.closest('dialog').querySelector('[data-step=\'2\']').classList.remove('hidden'); this.closest('dialog').querySelector('input[name=duration_min]').focus();"
+                style="background: var(--paper); border: 1.5px solid var(--line); border-radius: 14px; padding: 16px; cursor: pointer; text-align: left; width: 100%; transition: all 120ms;">
+          <div class="flex items-center" style="gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(14,14,14,0.06); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink);"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <div style="flex: 1;">
+              <div class="font-display" style="font-size: 14px; font-weight: 700; letter-spacing: -0.02em;">Saisir manuellement</div>
+              <div style="font-size: 11px; color: var(--ink-muted); margin-top: 2px;">Sans montre / sans Garmin</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink-muted);"><path d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2 : form manuel -->
+    <div data-step="2" class="hidden">
+      <div class="flex items-center justify-between" style="margin-bottom: 16px;">
+        <button type="button"
+                onclick="this.closest('dialog').querySelector('[data-step=\'1\']').classList.remove('hidden'); this.closest('dialog').querySelector('[data-step=\'2\']').classList.add('hidden');"
+                style="background: none; border: 0; cursor: pointer; color: var(--ink-muted); font-size: 13px; display: inline-flex; align-items: center; gap: 4px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7"/></svg>
+          Retour
+        </button>
+        <button type="button" onclick="document.getElementById('validate-modal').close()"
+                class="btn btn-ghost btn-icon" style="height: 32px; width: 32px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+        </button>
+      </div>
+      <h3 class="display-m" style="margin-bottom: 4px;">Saisir manuellement</h3>
+      <p style="font-size: 12px; color: var(--ink-muted); margin-bottom: 16px;">Entre la durée et la distance de ta séance.</p>
+      <form method="post" action="/sessions/{{ session.id }}/manual-actuals" class="flex flex-col" style="gap: 12px;">
+        <label>
+          <span class="field-label">Durée (minutes)</span>
+          <input type="number" name="duration_min" step="0.1" min="0.1" required
+                 placeholder="{{ session.estimated_duration_min or 40 }}" class="input" />
+        </label>
+        <label>
+          <span class="field-label">Distance (km)</span>
+          <input type="number" name="distance_km" step="0.01" min="0.01" required
+                 placeholder="{{ '%.1f'|format(session.estimated_distance_km or 6.0) }}" class="input" />
+        </label>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 4px;">Enregistrer</button>
+      </form>
+    </div>
+  </div>
+  <style>
+    .modal-choice:hover { border-color: var(--ink) !important; background: var(--cream) !important; }
+  </style>
+</dialog>
+{% endif %}
+
+<script>
+  // Loading state pour le formulaire d'export
+  document.querySelectorAll('[data-export-form]').forEach(form => {
+    form.addEventListener('submit', () => {
+      const btn = form.querySelector('[data-export-btn]');
+      const idle = form.querySelector('[data-export-idle]');
+      const loading = form.querySelector('[data-export-loading]');
+      if (btn && idle && loading) {
+        btn.disabled = true;
+        idle.classList.add('hidden');
+        loading.classList.remove('hidden');
+        loading.style.display = 'inline-flex';
+      }
+    });
+  });
+</script>
+{% endblock %}
