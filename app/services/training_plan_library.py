@@ -632,9 +632,14 @@ def generate_schedule(
         )
         if workout_date < earliest or workout_date > race_date:
             continue
+        # Le numéro affiché doit être relatif au début du suivi de l'athlète,
+        # pas au lundi de début théorique du plan complet. Ainsi, si l'athlète
+        # commence directement sur la quatrième semaine source, elle devient
+        # sa semaine 1.
+        athlete_week = max(1, ((workout_date - current_monday).days // 7) + 1)
         scheduled.append(ScheduledWorkout(
             plan_key=goal,
-            plan_week=preparation_weeks + workout.week_number,
+            plan_week=athlete_week,
             session_number=workout.session_number,
             date=workout_date, name=workout.name, description=workout.description,
             difficulty=workout.difficulty,
@@ -651,9 +656,10 @@ def generate_schedule(
         None,
     )
     if final_source_workout is None or not _is_race_workout(final_source_workout, plan.race_distance_m):
+        athlete_week = max(1, ((race_date - current_monday).days // 7) + 1)
         scheduled.append(ScheduledWorkout(
             plan_key=goal,
-            plan_week=preparation_weeks + plan.weeks,
+            plan_week=athlete_week,
             session_number=5,
             date=race_date,
             name=_race_label(plan.race_distance_m),

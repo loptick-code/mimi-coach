@@ -83,6 +83,12 @@ class TrainingPlanLibraryTests(unittest.TestCase):
         self.assertTrue(any(item.plan_week == 1 for item in schedule))
         self.assertTrue(any("Préparation générale" in item.description for item in schedule))
 
+    def test_plan_week_starts_at_one_when_athlete_joins_later(self):
+        race_date = date(2027, 2, 13)
+        _, schedule = generate_schedule("half", race_date, 300, 330, 4, today=date(2026, 11, 23))
+        first_week_session = next(item for item in schedule if item.date == date(2026, 11, 23))
+        self.assertEqual(first_week_session.plan_week, 1)
+
     def test_three_sessions_remove_session_three_every_week(self):
         race_date = date(2027, 3, 14)
         _, schedule = generate_schedule("half", race_date, 300, 330, 3, today=date(2026, 11, 22))
