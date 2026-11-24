@@ -14,6 +14,14 @@
     {% if profile.ef_fast and profile.ef_slow %}<p style="margin-top:6px;"><strong>EF :</strong> {{ profile.ef_fast }}–{{ profile.ef_slow }}/km</p>{% endif %}
   </div>
 
+  {% if profile.goal == 'other' and pace_rows %}<div class="card card-pad" style="margin-top:12px;">
+    <h2 class="section-title">Allures calculées depuis ton EF</h2>
+    <p style="font-size:12px;color:var(--ink-muted);margin-top:6px;line-height:1.5;">Ces allures seront utilisées pour interpréter les zones comme S60, S30, VMA ou tempo dans les séances importées.</p>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+      {% for pace in pace_rows if pace.value %}<div class="flex justify-between" style="border-bottom:1px solid var(--line);padding:6px 0;"><span>{{ pace.label }}</span><strong>{{ pace.value }}/km</strong></div>{% endfor %}
+    </div>
+  </div>{% endif %}
+
   {% if plan %}<div class="card card-pad" style="margin-top:12px;">
     <h2 class="section-title">{{ plan.label }} · {{ plan.weeks }} semaines</h2>
     <div class="flex flex-col" style="gap:7px;margin-top:12px;">

@@ -76,8 +76,8 @@ def calculate_pace_targets(
 ) -> dict[str, int]:
     """Calcule les allures auto depuis le milieu de la plage EF.
 
-    Les objectifs marathon n'ont pas encore de référentiel neutre validé, donc
-    la fonction renvoie un dictionnaire vide pour ce cas.
+    Le calcul dépend de l'EF de l'athlète, pas du choix d'un plan. L'objectif
+    est conservé dans la signature pour compatibilité avec les appels existants.
     """
     validate_ef_range(ef_fast_seconds, ef_slow_seconds)
     ef_midpoint = (ef_fast_seconds + ef_slow_seconds) / 2

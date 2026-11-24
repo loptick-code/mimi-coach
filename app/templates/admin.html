@@ -71,6 +71,13 @@
                 <span class="font-display" style="font-size: 15px; font-weight: 800; letter-spacing: -0.025em;">
                   {% if w.plan_week %}Semaine {{ w.plan_week }}{% else %}Semaine du {{ w.monday.day }} {{ _months_fr[w.monday.month] }}{% endif %}
                 </span>
+                <span style="font-size: 12px; color: var(--ink-muted); font-weight: 600;">
+                  {% if w.monday.month == w.sunday.month and w.monday.year == w.sunday.year %}
+                    · du {{ w.monday.day }} au {{ w.sunday.day }} {{ _months_fr[w.monday.month] }}
+                  {% else %}
+                    · du {{ w.monday.day }} {{ _months_fr[w.monday.month] }} au {{ w.sunday.day }} {{ _months_fr[w.sunday.month] }}{% if w.sunday.year != w.monday.year %} {{ w.sunday.year }}{% endif %}
+                  {% endif %}
+                </span>
                 {% if w.is_current %}<span class="pill pill-accent">en cours</span>
                 {% elif w.is_future %}<span class="pill pill-stone">à venir</span>
                 {% else %}<span class="pill pill-stone">passée</span>{% endif %}

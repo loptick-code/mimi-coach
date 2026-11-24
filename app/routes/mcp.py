@@ -249,11 +249,17 @@ def _step_payload(step: Any) -> dict[str, Any]:
 
 
 def _session_payload(session: TrainingSession, include_steps: bool) -> dict[str, Any]:
+    # Les descriptions générées contiennent le résumé du plan source, pas
+    # nécessairement les allures personnalisées de l'athlète. Les étapes
+    # structurées sont la source de vérité, donc ne renvoie pas ce résumé.
+    description = session.description
+    if description and description.startswith("Plan "):
+        description = None
     payload: dict[str, Any] = {
         "id": session.id,
         "date": session.date,
         "name": session.name,
-        "description": session.description,
+        "description": description,
         "difficulty": session.difficulty,
         "estimated_duration_min": session.estimated_duration_min,
         "estimated_distance_km": session.estimated_distance_km,

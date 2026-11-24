@@ -67,7 +67,7 @@
         <p style="font-size:11px;color:var(--ink-muted);">L’écart est toujours verrouillé à 30 secondes par kilomètre : modifier une borne complète automatiquement l’autre.</p>
       </section>
 
-      {% if settings_mode and profile.goal != 'other' %}
+      {% if settings_mode %}
       <section id="ef-section" class="card card-pad flex flex-col" style="gap:12px;">
         <div>
           <h2 class="section-title">Mes allures</h2>
@@ -131,7 +131,7 @@
 const goalSelect = document.querySelector('select[name="goal"]');
     const raceDate = document.getElementById('race-date');
     const efSection = document.getElementById('ef-section');
-    const syncGoal = () => { const other = goalSelect?.value === 'other'; if (raceDate) raceDate.required = !other; if (fast) fast.required = !other; if (slow) slow.required = !other; if (efSection) efSection.style.opacity = other ? '0.72' : '1'; };
+    const syncGoal = () => { const other = goalSelect?.value === 'other'; if (raceDate) raceDate.required = !other; if (fast) fast.required = !other; if (slow) slow.required = !other; };
     goalSelect?.addEventListener('change', syncGoal);
     syncGoal();
 </script>

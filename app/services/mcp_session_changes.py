@@ -146,11 +146,16 @@ def _validate_pace_updates(db: DBSession, session: Session, raw_updates: Any) ->
 
 
 def _session_snapshot(session: Session) -> dict[str, Any]:
+    # Ne pas exposer le résumé du plan source, qui peut contenir des allures
+    # différentes de celles de l'athlète. Les étapes structurées font foi.
+    description = session.description
+    if description and description.startswith("Plan "):
+        description = None
     return {
         "id": session.id,
         "date": session.date,
         "name": session.name,
-        "description": session.description,
+        "description": description,
         "difficulty": session.difficulty,
         "estimated_duration_min": session.estimated_duration_min,
         "estimated_distance_km": session.estimated_distance_km,

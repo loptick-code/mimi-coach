@@ -274,12 +274,16 @@ def session_to_running_workout(
         duration_min, _ = estimate_duration_and_distance(list(session.steps))
     estimated_secs = max(1, int((duration_min or 1) * 60))
 
+    garmin_description = session.description
+    if garmin_description and garmin_description.startswith("Plan "):
+        garmin_description = None
+
     return RunningWorkout(
         workoutName=session.name[:100],
         sportType=SPORT_RUNNING,
         estimatedDurationInSecs=estimated_secs,
         workoutSegments=[segment],
-        description=(session.description or "")[:1000] or None,
+        description=(garmin_description or "")[:1000] or None,
     )
 
 

@@ -30,6 +30,11 @@ class TrainingPaceTests(unittest.TestCase):
         self.assertEqual(marathon_targets["race_half"], 228)
         self.assertEqual(marathon_targets["race_marathon"], 266)
 
+    def test_other_objective_uses_the_same_ef_based_targets(self):
+        automatic_targets = calculate_pace_targets("10k", 300, 330)
+        imported_program_targets = calculate_pace_targets("other", 300, 330)
+        self.assertEqual(imported_program_targets, automatic_targets)
+
     def test_feedback_moves_current_ef_and_keeps_30_second_gap(self):
         faster = scale_ef_range(300, 330, 0.98)
         slower = scale_ef_range(300, 330, 1.02)

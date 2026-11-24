@@ -137,7 +137,11 @@ def _form_profile(form: Any) -> dict[str, Any]:
 
 
 def _store_profile(db: DBSession, user: User, data: dict[str, Any], form: Any, existing: TrainingProfile | None) -> TrainingProfile:
-    auto_targets = calculate_pace_targets(data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"]) if data["goal"] != "other" and data["ef_fast_sec_per_km"] and data["ef_slow_sec_per_km"] else {}
+    auto_targets = (
+        calculate_pace_targets(data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"])
+        if data["ef_fast_sec_per_km"] and data["ef_slow_sec_per_km"]
+        else {}
+    )
     old_targets = _json_dict(existing.pace_targets_json) if existing else {}
     old_manual = set(_json_list(existing.manual_paces_json)) if existing else set()
     reset_all = str(form.get("reset_auto_paces") or "").lower() in ("1", "true", "on", "yes")
@@ -385,7 +389,15 @@ def _profile_form_response(
     pace_change_warning: bool = False,
     pending_form: Any = None,
 ):
-    auto_targets = calculate_pace_targets(profile_data["goal"], profile_data["ef_fast_sec_per_km"], profile_data["ef_slow_sec_per_km"]) if profile_data.get("ef_fast_sec_per_km") else {}
+    auto_targets = (
+        calculate_pace_targets(
+            profile_data["goal"],
+            profile_data["ef_fast_sec_per_km"],
+            profile_data["ef_slow_sec_per_km"],
+        )
+        if profile_data.get("ef_fast_sec_per_km") and profile_data.get("ef_slow_sec_per_km")
+        else {}
+    )
     targets = profile_data.get("pace_targets") or auto_targets
     return templates.TemplateResponse(
         request,
@@ -451,17 +463,20 @@ async def onboarding_preview(request: Request, user: User = Depends(require_user
         context.update({"goal": form.get("goal", context["goal"]), "race_date": form.get("race_date", ""), "sessions_per_week": form.get("sessions_per_week", 4), "ef_fast": form.get("ef_fast", ""), "ef_slow": form.get("ef_slow", "")})
         return _profile_form_response(request, context, error=error)
     if data["goal"] == "other":
+        targets = calculate_pace_targets(
+            data["goal"], data["ef_fast_sec_per_km"], data["ef_slow_sec_per_km"]
+        ) if data["ef_fast_sec_per_km"] and data["ef_slow_sec_per_km"] else {}
         profile_data = {
             **data,
             "race_date": data["race_date"].isoformat() if data["race_date"] else "",
             "ef_fast": seconds_to_pace(data["ef_fast_sec_per_km"]),
             "ef_slow": seconds_to_pace(data["ef_slow_sec_per_km"]),
-            "pace_targets": {},
+            "pace_targets": targets,
             "manual_paces": [],
         }
         return templates.TemplateResponse(request, "training_profile_preview.html", {
             "user": user, "profile": profile_data, "goal_labels": GOAL_LABELS,
-            "pace_rows": [], "plan": None, "scheduled_count": 0,
+            "pace_rows": _pace_rows(targets, []), "plan": None, "scheduled_count": 0,
             "schedule_start": date.today(), "schedule_end": date.today(),
         })
     try:
@@ -555,6 +570,12 @@ async def save_training_settings(request: Request, user: User = Depends(require_
 
 def _get_pace_data(profile: TrainingProfile) -> tuple[dict[str, int], tuple[int, int] | None]:
     targets = _json_dict(profile.pace_targets_json)
+    if not targets and profile.ef_fast_sec_per_km and profile.ef_slow_sec_per_km:
+        targets = calculate_pace_targets(
+            profile.goal,
+            profile.ef_fast_sec_per_km,
+            profile.ef_slow_sec_per_km,
+        )
     ef_range = None
     if profile.ef_fast_sec_per_km and profile.ef_slow_sec_per_km:
         ef_range = (profile.ef_fast_sec_per_km, profile.ef_slow_sec_per_km)
